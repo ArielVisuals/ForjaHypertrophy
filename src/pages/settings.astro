@@ -1,0 +1,39 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { SettingsPanel } from "@/components/shared/SettingsPanel";
+import { db } from "@/lib/db";
+import { nutritionTargets } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect("/");
+
+const [target] = await db
+  .select()
+  .from(nutritionTargets)
+  .where(and(eq(nutritionTargets.userId, userId), eq(nutritionTargets.active, true)))
+  .limit(1);
+---
+
+<MainLayout title="Configuración">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+    <div class="mb-8 md:mb-12">
+      <p class="text-[9px] font-black text-blue-500/40 uppercase tracking-[0.4em] mb-1 hidden sm:block">FORJA / CONFIGURACIÓN</p>
+      <h1 class="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none">PERFIL Y METAS</h1>
+      <p class="text-white/25 text-xs font-bold uppercase tracking-widest mt-2">Calcula tus calorías y macros óptimos según tu objetivo</p>
+    </div>
+
+    {userId && (
+      <SettingsPanel
+        userId={userId}
+        initialTargets={target ? {
+          calories: Number(target.calories),
+          proteinG: Number(target.proteinG),
+          carbsG:   Number(target.carbsG),
+          fatsG:    Number(target.fatsG),
+        } : null}
+        client:load
+      />
+    )}
+  </div>
+</MainLayout>

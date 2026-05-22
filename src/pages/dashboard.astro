@@ -1,0 +1,379 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { MOTIVATIONAL_QUOTES } from "@/lib/constants";
+import NumberTicker from "@/components/ui/NumberTicker";
+import { DashboardStats } from "@/components/dashboard/DashboardStats";
+import { WeeklyVolumeWidget } from "@/components/dashboard/WeeklyVolumeWidget";
+import { RecoveryInsightsWidget } from "@/components/dashboard/RecoveryInsightsWidget";
+import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
+import { db } from "@/lib/db";
+import { workoutSessions, nutritionLogs, trainingPrograms, bodyMeasurements } from "@/lib/db/schema";
+import { eq, and, desc, isNotNull, gte, sql } from "drizzle-orm";
+import { clerkClient } from "@clerk/astro/server";
+import { getTodaysProgramDay, MUSCLE_GROUP_LABELS } from "@/lib/constants/programs";
+import { getWeeklyVolumeByMuscle, getWeeklyDigest } from "@/lib/db/workouts";
+
+const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+
+// 1. Auth & Identity
+const { userId } = Astro.locals.auth();
+let userName = "Atleta";
+let user = null;
+
+if (userId) {
+  try {
+    user = await clerkClient(Astro).users.getUser(userId);
+    userName = user.firstName || user.username || "Atleta";
+  } catch (e) {
+    console.error("Error identity:", e);
+  }
+}
+
+// 2. Data Fetching (Parallel)
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// Fetch Active Program
+const activeProgram = await db.query.trainingPrograms.findFirst({
+  where: and(eq(trainingPrograms.userId, userId!), eq(trainingPrograms.active, true))
+});
+
+// Fetch Today's Nutrition
+const todayNutrition = await db
+  .select()
+  .from(nutritionLogs)
+  .where(and(eq(nutritionLogs.userId, userId!), gte(nutritionLogs.loggedAt, today)));
+
+const nutritionTotals = todayNutrition.reduce((acc, log) => ({
+  kcal: acc.kcal + Number(log.calories),
+  prot: acc.prot + Number(log.proteinG || 0)
+}), { kcal: 0, prot: 0 });
+
+// Fetch Latest Measurement
+const lastMeasurement = await db.query.bodyMeasurements.findFirst({
+  where: eq(bodyMeasurements.userId, userId!),
+  orderBy: desc(bodyMeasurements.measuredAt)
+});
+
+// Fetch Basic Stats
+const allSessions = await db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId!), isNotNull(workoutSessions.completedAt)));
+const totalWorkouts = allSessions.length;
+
+const startOfMonth = new Date();
+startOfMonth.setDate(1);
+startOfMonth.setHours(0, 0, 0, 0);
+const workoutsThisMonth = allSessions.filter(s => new Date(s.startedAt!) >= startOfMonth).length;
+
+let streak = 0;
+if (allSessions.length > 0) {
+  const uniqueDates = new Set(allSessions.map(s => new Date(s.startedAt!).toDateString()));
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  // La racha sigue viva si entrenó hoy o ayer
+  if (uniqueDates.has(today.toDateString()) || uniqueDates.has(yesterday.toDateString())) {
+    let checkDate = new Date(uniqueDates.has(today.toDateString()) ? today : yesterday);
+    while (uniqueDates.has(checkDate.toDateString())) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+  }
+}
+
+const initialStats = {
+  currentStreak: streak,
+  totalWorkouts,
+  workoutsThisMonth,
+};
+
+// Today's plan from active program
+const todayPlan = activeProgram ? getTodaysProgramDay(activeProgram.splitType) : null;
+const todayDayName = new Date().toLocaleDateString("es-ES", { weekday: "long" }).toUpperCase();
+
+// Weekly volume (server-side prefetch for WeeklyVolumeWidget)
+const { data: weeklyVolumeData } = userId
+  ? await getWeeklyVolumeByMuscle(userId)
+  : { data: [] };
+
+// Weekly digest
+const { data: weeklyDigest } = userId
+  ? await getWeeklyDigest(userId)
+  : { data: null };
+---
+
+<MainLayout title="Centro de Mando">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex flex-col gap-10">
+
+    <!-- Header: Grid Maestro de Bienvenida -->
+    <div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        
+        <!-- Lado Izquierdo: Saludo y Transmisión (7 de 12 columnas) -->
+        <div class="lg:col-span-7 flex flex-col justify-center space-y-6">
+          <div class="space-y-1">
+            <p class="text-[10px] font-black text-blue-500/50 uppercase tracking-[0.4em] mb-2">SISTEMA OPERATIVO / V1.0</p>
+            <h1 class="text-4xl md:text-6xl font-black tracking-tighter text-white uppercase leading-[0.9]">
+              <span class="text-white/20">HOLA,</span> {userName}
+            </h1>
+          </div>
+
+          <!-- Transmisión Motivacional Compacta -->
+          <div class="flex items-center gap-4 py-3 px-6 rounded-xl bg-white/[0.02] border border-white/5 relative overflow-hidden group w-fit max-w-full">
+            <div class="absolute inset-y-0 left-0 w-1 bg-blue-600/50"></div>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+              <span class="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] whitespace-nowrap">TRANSMISIÓN</span>
+            </div>
+            <div class="w-[1px] h-3 bg-white/10 shrink-0"></div>
+            <p class="text-white/50 text-[10px] md:text-xs font-bold uppercase tracking-wider italic leading-none">
+              "{randomQuote}"
+            </p>
+          </div>
+        </div>
+        
+        <!-- Lado Derecho: Misión Actual (5 de 12 columnas) -->
+        <div class="lg:col-span-5 flex items-center">
+          {activeProgram ? (
+            <div class="w-full relative group p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 overflow-hidden shadow-2xl transition-all hover:border-blue-500/30">
+              <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl -z-10"></div>
+              
+              <div class="flex justify-between items-start mb-6">
+                <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
+                  MISIÓN ACTUAL
+                </div>
+                <span class="text-[9px] font-black text-white/20 uppercase tracking-widest">SEM {activeProgram.currentWeek}/{activeProgram.durationWeeks}</span>
+              </div>
+              
+              <div class="space-y-4">
+                <h3 class="text-2xl font-black text-white uppercase tracking-tighter truncate">{activeProgram.name}</h3>
+                <div class="space-y-2">
+                  <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-1000" style={{ width: `${(activeProgram.currentWeek / activeProgram.durationWeeks) * 100}%` }}></div>
+                  </div>
+                  <div class="flex justify-between text-[8px] font-black text-white/30 uppercase tracking-widest">
+                     <span>AVANCE MESOCICLO</span>
+                     <span class="text-blue-400">{Math.round((activeProgram.currentWeek / activeProgram.durationWeeks) * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div class="w-full p-8 rounded-[2.5rem] border border-dashed border-white/5 flex flex-col items-center justify-center text-center gap-3 bg-white/[0.01]">
+              <p class="text-[10px] font-black text-white/20 uppercase tracking-widest">SIN MISIÓN ACTIVA</p>
+              <a href="/program" class="px-6 py-2 rounded-full bg-blue-600/10 border border-blue-600/20 text-[9px] font-black text-blue-400 uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">Configurar Plan →</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- HOY: Plan del día -->
+    {activeProgram && (
+      todayPlan ? (
+        <div class="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
+          <div class="flex flex-col lg:flex-row items-stretch">
+
+            <!-- Left: day label + session name -->
+            <div class="flex flex-col justify-center px-8 py-6 border-b lg:border-b-0 lg:border-r border-white/5 shrink-0 lg:w-72">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>
+                <span class="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em]">HOY · {todayDayName}</span>
+              </div>
+              <p class="text-2xl font-black text-white uppercase tracking-tighter leading-none">{todayPlan.name}</p>
+              <p class="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-1">{activeProgram.name}</p>
+            </div>
+
+            <!-- Center: focus muscles + exercise count -->
+            <div class="flex flex-col justify-center px-8 py-6 flex-1 border-b lg:border-b-0 lg:border-r border-white/5">
+              <p class="text-[8px] font-black text-white/20 uppercase tracking-widest mb-3">MÚSCULOS OBJETIVO</p>
+              <div class="flex flex-wrap gap-2 mb-4">
+                {todayPlan.focusMuscles.map((m: string) => (
+                  <span class="px-3 py-1 rounded-full bg-blue-600/15 border border-blue-500/30 text-[9px] font-black text-blue-300 uppercase tracking-widest">
+                    {MUSCLE_GROUP_LABELS[m] ?? m}
+                  </span>
+                ))}
+              </div>
+              <div class="flex flex-wrap gap-x-5 gap-y-1">
+                {todayPlan.exercises.slice(0, 4).map((ex: any) => (
+                  <span class="text-[9px] font-bold text-white/30 uppercase tracking-wide">· {ex.name}</span>
+                ))}
+                {todayPlan.exercises.length > 4 && (
+                  <span class="text-[9px] font-bold text-white/20 uppercase tracking-wide">+{todayPlan.exercises.length - 4} más</span>
+                )}
+              </div>
+            </div>
+
+            <!-- Right: stats + CTA -->
+            <div class="flex flex-col justify-center items-center lg:items-end px-8 py-6 shrink-0 gap-4">
+              <div class="flex items-center gap-6 text-center">
+                <div>
+                  <div class="text-2xl font-black text-white tabular-nums">{todayPlan.exercises.length}</div>
+                  <div class="text-[8px] font-black text-white/20 uppercase tracking-widest">EJERCICIOS</div>
+                </div>
+                <div class="w-[1px] h-8 bg-white/10"></div>
+                <div>
+                  <div class="text-2xl font-black text-white tabular-nums">{todayPlan.exercises.reduce((acc: number, e: any) => acc + e.targetSets, 0)}</div>
+                  <div class="text-[8px] font-black text-white/20 uppercase tracking-widest">SETS PLAN</div>
+                </div>
+              </div>
+              <a href="/workout" class="px-8 py-3 rounded-xl bg-blue-600 text-white font-black uppercase tracking-[0.25em] text-[9px] shadow-lg shadow-blue-600/20 hover:bg-blue-500 transition-all active:scale-95 whitespace-nowrap">
+                FORJAR AHORA →
+              </a>
+            </div>
+
+          </div>
+        </div>
+      ) : (
+        <div class="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-white/8 px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-[8px] font-black text-emerald-400 uppercase tracking-[0.3em]">HOY · {todayDayName} · DESCANSO</p>
+              <p class="text-sm font-black text-white uppercase tracking-tight mt-0.5">Día de Recuperación Activa</p>
+              <p class="text-[9px] font-bold text-white/20 uppercase tracking-widest">{activeProgram.name}</p>
+            </div>
+          </div>
+          <a href="/workout" class="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all whitespace-nowrap">
+            SESIÓN LIBRE →
+          </a>
+        </div>
+      )
+    )}
+
+    <!-- Weekly Digest -->
+    {weeklyDigest && (
+      <div class="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-white/[0.07] overflow-hidden">
+        <div class="flex flex-col sm:flex-row items-stretch divide-y sm:divide-y-0 sm:divide-x divide-white/[0.05]">
+          <!-- Label -->
+          <div class="px-6 py-5 sm:py-6 flex items-center gap-3 shrink-0">
+            <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+            <span class="text-[8px] font-black text-white/25 uppercase tracking-[0.3em] whitespace-nowrap">SEMANA ACTUAL</span>
+          </div>
+          <!-- Stats -->
+          {[
+            { label: "SESIONES", value: weeklyDigest.sessionsThisWeek.toString(), sub: "ESTA SEMANA" },
+            { label: "VOLUMEN",  value: weeklyDigest.totalVolume > 0 ? `${(weeklyDigest.totalVolume / 1000).toFixed(1)}T` : "—", sub: "TOTAL KG" },
+            { label: "SETS",     value: weeklyDigest.totalSets.toString(), sub: "COMPLETADOS" },
+            { label: "RPE PROM", value: weeklyDigest.avgRpe ? weeklyDigest.avgRpe.toString() : "—", sub: "ESFUERZO" },
+          ].map(stat => (
+            <div class="flex-1 px-6 py-4 sm:py-6 text-center">
+              <p class="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">{stat.label}</p>
+              <p class="text-2xl font-black text-white tabular-nums">{stat.value}</p>
+              <p class="text-[7px] font-bold text-white/15 uppercase tracking-widest mt-0.5">{stat.sub}</p>
+            </div>
+          ))}
+          <!-- CTA -->
+          <div class="px-6 py-5 flex items-center justify-center shrink-0">
+            <a href="/workout" class="px-5 py-2.5 rounded-xl bg-blue-600/10 border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all whitespace-nowrap">
+              {weeklyDigest.sessionsThisWeek === 0 ? "Empezar Semana →" : "Seguir →"}
+            </a>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Activity Heatmap */}
+    {userId && <ActivityHeatmap userId={userId} client:load />}
+
+    {/* Línea Divisora Técnica */}
+    <div class="flex items-center gap-4">
+      <h2 class="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] whitespace-nowrap">TELEMETRÍA DE RENDIMIENTO</h2>
+      <div class="flex-grow h-[1px] bg-white/5"></div>
+    </div>
+
+    {/* Resumen de Rendimiento (Cards de Stats) */}
+    <div class="w-full">
+      {userId && <DashboardStats userId={userId} initialStats={initialStats} client:load />}
+    </div>
+
+    {/* Inteligencia de Módulos (Fuel & Progress & Action) */}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      {/* Fuel Lab Intelligence */}
+      <div class="p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 relative overflow-hidden group hover:border-orange-500/30 transition-all flex flex-col justify-between">
+         <div class="text-[9px] font-black text-orange-500 tracking-widest uppercase mb-10">LABORATORIO DE COMBUSTIBLE</div>
+         <div class="space-y-6">
+            <div class="flex justify-between items-end">
+               <div class="space-y-1">
+                  <div class="text-4xl font-black text-white tabular-nums">{nutritionTotals.kcal}</div>
+                  <div class="text-[9px] font-black text-white/30 tracking-widest uppercase">KCAL REGISTRADAS</div>
+               </div>
+               <div class="text-right space-y-1">
+                  <div class="text-xl font-black text-emerald-400 tabular-nums">{nutritionTotals.prot}G</div>
+                  <div class="text-[9px] font-black text-white/30 tracking-widest uppercase">PROT</div>
+               </div>
+            </div>
+            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+               <div class="h-full bg-gradient-to-r from-orange-600 to-orange-400" style={`width: ${Math.min(100, (nutritionTotals.kcal/2800)*100)}%`}></div>
+            </div>
+            <a href="/nutrition" class="block text-center py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase tracking-widest hover:text-white hover:bg-orange-500/10 transition-all">ACCEDER AL LABORATORIO →</a>
+         </div>
+      </div>
+
+      {/* Progress Lab Intelligence */}
+      <div class="p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 relative overflow-hidden group hover:border-emerald-500/30 transition-all flex flex-col justify-between">
+         <div class="text-[9px] font-black text-emerald-500 tracking-widest uppercase mb-10">ANÁLISIS DE SIMETRÍA</div>
+         <div class="space-y-6">
+            {lastMeasurement ? (
+              <div class="space-y-6">
+                <div class="flex justify-between items-center px-4">
+                   <div class="text-center flex-1">
+                      <div class="text-3xl font-black text-white">{lastMeasurement.armLeftCm || "--"}</div>
+                      <div class="text-[8px] font-black text-white/20 uppercase tracking-widest">BRAZO IZQ</div>
+                   </div>
+                   <div class="w-[1px] h-8 bg-white/10"></div>
+                   <div class="text-center flex-1">
+                      <div class="text-3xl font-black text-white">{lastMeasurement.armRightCm || "--"}</div>
+                      <div class="text-[8px] font-black text-white/20 uppercase tracking-widest">BRAZO DER</div>
+                   </div>
+                </div>
+                <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-center">
+                   <span class="text-[8px] font-black text-emerald-400 uppercase tracking-[0.2em]">Δ DIFERENCIA: {Math.abs(Number(lastMeasurement.armLeftCm || 0) - Number(lastMeasurement.armRightCm || 0)).toFixed(1)} CM</span>
+                </div>
+              </div>
+            ) : (
+              <div class="py-10 text-center text-white/10 font-black uppercase text-[9px] tracking-widest">Escáner Requerido</div>
+            )}
+            <a href="/progress" class="block text-center py-4 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase tracking-widest hover:text-white hover:bg-emerald-500/10 transition-all">ACCEDER AL ESCÁNER →</a>
+         </div>
+      </div>
+
+      {/* Action Center */}
+      <div class="group relative p-[1px] rounded-[2.5rem] bg-gradient-to-b from-blue-500/50 via-blue-500/10 to-transparent shadow-xl flex flex-col h-full">
+         <div class="relative flex-grow p-8 rounded-[2.4rem] bg-[#0A0A0B] flex flex-col justify-between overflow-hidden">
+            <div class="absolute top-0 right-0 w-48 h-48 bg-blue-600/10 blur-[80px] -z-10"></div>
+            <div class="space-y-4">
+               <div class="inline-flex px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-[8px] font-black text-blue-400 uppercase tracking-widest">READY TO LOG</div>
+               <h3 class="text-3xl font-black text-white uppercase tracking-tighter leading-none mt-1">FORJAR<br/>AHORA</h3>
+               <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest">EJECUCIÓN DE SESIÓN EN COMBAT MODE</p>
+            </div>
+            <a href="/workout" class="mt-8 w-full py-5 rounded-xl bg-blue-600 text-white font-black uppercase tracking-[0.3em] text-[10px] text-center shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2">
+              <span>INICIAR</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </a>
+         </div>
+      </div>
+
+    </div>
+
+    <!-- Volumen + Recovery -->
+    {userId && (
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <WeeklyVolumeWidget
+          userId={userId}
+          initialData={weeklyVolumeData ?? []}
+          client:load
+        />
+        <RecoveryInsightsWidget userId={userId} client:load />
+      </div>
+    )}
+
+    <div class="h-24 md:h-0"></div>
+  </div>
+</MainLayout>

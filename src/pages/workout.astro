@@ -1,0 +1,24 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { WorkoutTracker } from "@/components/workout/WorkoutTracker";
+
+const { userId } = Astro.locals.auth();
+---
+
+<MainLayout title="Entrenar">
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+
+    <!-- Page Header: FORJA style, compact on mobile -->
+    <div class="mb-6 md:mb-10">
+      <p class="text-[9px] font-black text-blue-500/40 uppercase tracking-[0.4em] mb-1 hidden sm:block">
+        FORJA / ENTRENAMIENTO
+      </p>
+      <h1 class="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none">
+        ENTRENAR
+      </h1>
+    </div>
+
+    <!-- Workout Tracker Component -->
+    {userId && <WorkoutTracker userId={userId} client:load />}
+  </div>
+</MainLayout>
