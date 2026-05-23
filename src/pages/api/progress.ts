@@ -13,20 +13,35 @@ export const GET: APIRoute = async ({ url }) => {
     .where(eq(bodyMeasurements.userId, userId))
     .orderBy(desc(bodyMeasurements.measuredAt));
 
-  const prsData = await db
+  // All completed sets ordered by weight desc — group client-side for one PR per exercise
+  const allSets = await db
     .select({
-      weightKg: workoutSets.weightKg,
-      reps: workoutSets.reps,
-      date: workoutSets.createdAt,
-      exerciseName: exercises.name
+      weightKg:     workoutSets.weightKg,
+      reps:         workoutSets.reps,
+      date:         workoutSessions.startedAt,
+      exerciseName: exercises.name,
     })
     .from(workoutSets)
     .innerJoin(workoutSessions, eq(workoutSets.workoutSessionId, workoutSessions.id))
     .innerJoin(exercises, eq(workoutSets.exerciseId, exercises.id))
-    .where(eq(workoutSessions.userId, userId))
+    .where(and(eq(workoutSessions.userId, userId), eq(workoutSets.completed, true)))
     .orderBy(desc(workoutSets.weightKg));
 
-  return new Response(JSON.stringify({ measurements, prs: prsData }), { status: 200 });
+  // One record per exercise: highest weight set
+  const seen = new Map<string, { exerciseName: string; maxWeight: number; reps: number; date: string }>();
+  for (const s of allSets) {
+    if (!seen.has(s.exerciseName)) {
+      seen.set(s.exerciseName, {
+        exerciseName: s.exerciseName,
+        maxWeight:    Number(s.weightKg ?? 0),
+        reps:         s.reps,
+        date:         s.date?.toISOString() ?? new Date().toISOString(),
+      });
+    }
+  }
+  const prs = Array.from(seen.values());
+
+  return new Response(JSON.stringify({ measurements, prs }), { status: 200 });
 };
 
 export const POST: APIRoute = async ({ request }) => {
