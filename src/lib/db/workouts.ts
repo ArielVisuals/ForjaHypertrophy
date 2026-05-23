@@ -793,3 +793,95 @@ export async function deleteWorkoutTemplate(id: string) {
     return { error };
   }
 }
+
+export interface TodaySessionSummary {
+  id: string;
+  name: string;
+  completedAt: Date;
+  durationMinutes: number | null;
+  overallRpe: number | null;
+  exercises: {
+    name: string;
+    muscleGroup: string;
+    sets: { weightKg: number; reps: number; rpe: number | null }[];
+  }[];
+}
+
+/**
+ * Devuelve la sesión completada en las últimas 24 horas (si existe).
+ * Usa ventana de 24 h para ser inmune a diferencias de timezone UTC vs local.
+ */
+export async function getTodayCompletedSession(
+  userId: string
+): Promise<{ data: TodaySessionSummary | null; error: unknown }> {
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const session = await db
+      .select()
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.userId, userId),
+          isNotNull(workoutSessions.completedAt),
+          sql`${workoutSessions.completedAt} >= ${since}`
+        )
+      )
+      .orderBy(desc(workoutSessions.completedAt))
+      .limit(1)
+      .then(rows => rows[0] ?? null);
+
+    if (!session) return { data: null, error: null };
+
+    const sets = await db
+      .select({
+        exerciseName: exercisesTable.name,
+        muscleGroup:  exercisesTable.muscleGroup,
+        weightKg:     workoutSets.weightKg,
+        reps:         workoutSets.reps,
+        rpe:          workoutSets.rpe,
+        setNumber:    workoutSets.setNumber,
+      })
+      .from(workoutSets)
+      .innerJoin(exercisesTable, eq(workoutSets.exerciseId, exercisesTable.id))
+      .where(
+        and(
+          eq(workoutSets.workoutSessionId, session.id),
+          eq(workoutSets.completed, true)
+        )
+      )
+      .orderBy(asc(workoutSets.setNumber));
+
+    // Group sets by exercise name
+    const exerciseMap = new Map<string, TodaySessionSummary["exercises"][0]>();
+    for (const s of sets) {
+      if (!exerciseMap.has(s.exerciseName)) {
+        exerciseMap.set(s.exerciseName, {
+          name: s.exerciseName,
+          muscleGroup: s.muscleGroup,
+          sets: [],
+        });
+      }
+      exerciseMap.get(s.exerciseName)!.sets.push({
+        weightKg: Number(s.weightKg ?? 0),
+        reps: s.reps,
+        rpe: s.rpe,
+      });
+    }
+
+    return {
+      data: {
+        id: session.id,
+        name: session.name,
+        completedAt: session.completedAt!,
+        durationMinutes: session.durationMinutes,
+        overallRpe: session.overallRpe,
+        exercises: Array.from(exerciseMap.values()),
+      },
+      error: null,
+    };
+  } catch (error) {
+    console.error("Error fetching today session:", error);
+    return { data: null, error };
+  }
+}

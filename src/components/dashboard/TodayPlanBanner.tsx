@@ -10,9 +10,10 @@ interface ActiveProgram {
 
 interface TodayPlanBannerProps {
   activeProgram: ActiveProgram;
+  alreadyTrained?: boolean;
 }
 
-export function TodayPlanBanner({ activeProgram }: TodayPlanBannerProps) {
+export function TodayPlanBanner({ activeProgram, alreadyTrained = false }: TodayPlanBannerProps) {
   const [todayPlan] = useState<ProgramDaySchedule | null>(() =>
     getTodaysProgramDay(activeProgram.splitType)
   );
@@ -21,6 +22,7 @@ export function TodayPlanBanner({ activeProgram }: TodayPlanBannerProps) {
     .toLocaleDateString("es-ES", { weekday: "long" })
     .toUpperCase();
 
+  // ── Rest day ──────────────────────────────────────────────────────────────
   if (!todayPlan) {
     return (
       <div className="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-white/8 px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -36,13 +38,59 @@ export function TodayPlanBanner({ activeProgram }: TodayPlanBannerProps) {
             <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">{activeProgram.name}</p>
           </div>
         </div>
-        <a href="/workout" className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all whitespace-nowrap">
-          SESIÓN LIBRE →
-        </a>
+        {!alreadyTrained && (
+          <a href="/workout" className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all whitespace-nowrap">
+            SESIÓN LIBRE →
+          </a>
+        )}
+        {alreadyTrained && (
+          <a href="/workout" className="px-6 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest whitespace-nowrap">
+            ✓ VER SESIÓN
+          </a>
+        )}
       </div>
     );
   }
 
+  // ── Training day — already trained ────────────────────────────────────────
+  if (alreadyTrained) {
+    return (
+      <div className="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-emerald-500/20 overflow-hidden">
+        <div className="flex flex-col lg:flex-row items-stretch">
+
+          <div className="flex flex-col justify-center px-8 py-6 border-b lg:border-b-0 lg:border-r border-white/5 shrink-0 lg:w-72">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+              <span className="text-[8px] font-black text-emerald-400 uppercase tracking-[0.3em]">HOY · {todayDayName} · COMPLETADO</span>
+            </div>
+            <p className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{todayPlan.name}</p>
+            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-1">{activeProgram.name}</p>
+          </div>
+
+          <div className="flex flex-col justify-center px-8 py-6 flex-1 border-b lg:border-b-0 lg:border-r border-white/5">
+            <p className="text-[9px] font-black text-emerald-400/70 uppercase tracking-widest">
+              SESIÓN REGISTRADA. DESCANSA Y RECUPERA.
+            </p>
+            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-1">
+              Solo se permite un entrenamiento por día.
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-center items-center lg:items-end px-8 py-6 shrink-0 gap-3">
+            <a href="/workout" className="px-8 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black uppercase tracking-[0.2em] text-[9px] hover:bg-emerald-500/20 transition-all whitespace-nowrap">
+              VER RESUMEN →
+            </a>
+            <a href="/progress" className="text-[8px] font-black text-white/20 uppercase tracking-widest hover:text-white/40 transition-all">
+              IR A PROGRESO →
+            </a>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ── Training day — pending ────────────────────────────────────────────────
   return (
     <div className="w-full rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
       <div className="flex flex-col lg:flex-row items-stretch">

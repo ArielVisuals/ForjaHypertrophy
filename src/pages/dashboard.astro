@@ -11,7 +11,7 @@ import { workoutSessions, nutritionLogs, trainingPrograms, bodyMeasurements } fr
 import { eq, and, desc, isNotNull, gte, sql } from "drizzle-orm";
 import { clerkClient } from "@clerk/astro/server";
 import { TodayPlanBanner } from "@/components/dashboard/TodayPlanBanner";
-import { getWeeklyVolumeByMuscle, getWeeklyDigest } from "@/lib/db/workouts";
+import { getWeeklyVolumeByMuscle, getWeeklyDigest, getTodayCompletedSession } from "@/lib/db/workouts";
 
 const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
 
@@ -87,15 +87,20 @@ const initialStats = {
   workoutsThisMonth,
 };
 
-// Weekly volume (server-side prefetch for WeeklyVolumeWidget)
-const { data: weeklyVolumeData } = userId
-  ? await getWeeklyVolumeByMuscle(userId)
-  : { data: [] };
+// Weekly volume + digest + today check (parallel)
+const [
+  { data: weeklyVolumeData },
+  { data: weeklyDigest },
+  { data: todaySessionData },
+] = userId
+  ? await Promise.all([
+      getWeeklyVolumeByMuscle(userId),
+      getWeeklyDigest(userId),
+      getTodayCompletedSession(userId),
+    ])
+  : [{ data: [] }, { data: null }, { data: null }];
 
-// Weekly digest
-const { data: weeklyDigest } = userId
-  ? await getWeeklyDigest(userId)
-  : { data: null };
+const alreadyTrainedToday = !!todaySessionData;
 ---
 
 <MainLayout title="Centro de Mando">
@@ -174,6 +179,7 @@ const { data: weeklyDigest } = userId
           currentWeek: activeProgram.currentWeek ?? 1,
           durationWeeks: activeProgram.durationWeeks ?? 12,
         }}
+        alreadyTrained={alreadyTrainedToday}
         client:load
       />
     )}

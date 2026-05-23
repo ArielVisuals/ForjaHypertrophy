@@ -14,9 +14,23 @@ import {
 } from "@/lib/constants/programs";
 import type { MuscleGroup } from "@/types/workout";
 
+interface TodaySessionSummary {
+  id: string;
+  name: string;
+  completedAt: string;
+  durationMinutes: number | null;
+  overallRpe: number | null;
+  exercises: {
+    name: string;
+    muscleGroup: string;
+    sets: { weightKg: number; reps: number; rpe: number | null }[];
+  }[];
+}
+
 interface WorkoutTrackerProps {
   userId: string;
   initialProgram?: ActiveProgram | null;
+  todaySession?: TodaySessionSummary | null;
 }
 
 interface SetLog {
@@ -65,7 +79,7 @@ interface ActiveProgram {
   durationWeeks: number;
 }
 
-export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) {
+export function WorkoutTracker({ userId, initialProgram, todaySession }: WorkoutTrackerProps) {
   const [session, setSession]             = useState<{ id: string; name: string } | null>(null);
   const [exercises, setExercises]         = useState<ExerciseSession[]>([]);
   const [startTime, setStartTime]         = useState<number | null>(null);
@@ -560,6 +574,107 @@ export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) 
     setShowRating(false);
     setShowSummary(true);
   };
+
+  // ─── YA ENTRENASTE HOY ────────────────────────────────────────────────────
+  if (todaySession && !session) {
+    const s = todaySession;
+    const totalSets = s.exercises.reduce((a, e) => a + e.sets.length, 0);
+    const totalVol  = s.exercises.reduce(
+      (a, e) => a + e.sets.reduce((b, set) => b + set.weightKg * set.reps, 0), 0
+    );
+    const fmt = (min: number) => `${Math.floor(min / 60)}h ${min % 60}min`;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-2xl mx-auto space-y-6"
+      >
+        {/* Header */}
+        <div className="text-center space-y-2 pt-4">
+          <p className="text-[8px] font-black text-emerald-400 uppercase tracking-[0.4em]">MISIÓN COMPLETADA</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none">{s.name}</h2>
+          <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest">
+            {new Date(s.completedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} HOY
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "DURACIÓN",  value: s.durationMinutes ? fmt(s.durationMinutes) : "—", color: "#fff" },
+            { label: "SETS",      value: String(totalSets), color: "#34d399" },
+            { label: "RPE",       value: s.overallRpe ? `${s.overallRpe}/10` : "—", color: "#60a5fa" },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] p-5 text-center">
+              <p className="text-[7px] font-black text-white/25 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
+              <p className="text-xl font-black" style={{ color: stat.color }}>{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Volumen total */}
+        {totalVol > 0 && (
+          <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.05] px-6 py-4 flex items-center justify-between">
+            <span className="text-[8px] font-black text-white/25 uppercase tracking-widest">VOLUMEN TOTAL</span>
+            <span className="text-lg font-black text-white/60">{Math.round(totalVol).toLocaleString("es-ES")} KG</span>
+          </div>
+        )}
+
+        {/* Ejercicios */}
+        <div className="rounded-[1.75rem] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div className="px-6 pt-5 pb-3">
+            <p className="text-[8px] font-black text-white/25 uppercase tracking-[0.25em]">EJERCICIOS</p>
+          </div>
+          {s.exercises.map((ex, i) => {
+            const bestSet = ex.sets.length > 0
+              ? ex.sets.reduce((b, set) => set.weightKg > b.weightKg ? set : b, ex.sets[0])
+              : null;
+            return (
+              <div key={i} className="px-6 py-4 border-t border-white/[0.04]">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-[11px] font-black text-white uppercase tracking-tight">{ex.name}</p>
+                    <p className="text-[8px] font-bold text-white/25 uppercase tracking-widest mt-0.5">
+                      {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup}
+                    </p>
+                  </div>
+                  <span className="text-[9px] font-black text-white/40">{ex.sets.length} SETS</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ex.sets.map((set, si) => (
+                    <span
+                      key={si}
+                      className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md"
+                      style={{
+                        color:      set === bestSet ? "#34d399" : "rgba(255,255,255,0.35)",
+                        background: set === bestSet ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
+                        border:     `1px solid ${set === bestSet ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)"}`,
+                      }}
+                    >
+                      {set.weightKg > 0 ? `${set.weightKg}kg` : "BW"} × {set.reps}
+                      {set.rpe != null ? ` · RIR ${10 - set.rpe}` : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Volver al dashboard */}
+        <div className="flex justify-center pb-8">
+          <a
+            href="/dashboard"
+            className="px-8 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] font-black text-white/50 uppercase tracking-widest hover:text-white hover:bg-white/8 transition-all"
+          >
+            ← VOLVER AL CENTRO DE MANDO
+          </a>
+        </div>
+      </motion.div>
+    );
+  }
 
   // ─── PANTALLA DE INICIO ────────────────────────────────────────────────────
   if (!session) {

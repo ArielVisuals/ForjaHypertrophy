@@ -4,23 +4,36 @@ import { WorkoutTracker } from "@/components/workout/WorkoutTracker";
 import { db } from "@/lib/db";
 import { trainingPrograms } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getTodayCompletedSession } from "@/lib/db/workouts";
+
 const { userId } = Astro.locals.auth();
 
 let initialProgram = null;
+let todaySession   = null;
 
 if (userId) {
-  const active = await db.query.trainingPrograms.findFirst({
-    where: and(eq(trainingPrograms.userId, userId), eq(trainingPrograms.active, true)),
-  });
-  if (active) {
+  const [activeResult, todayResult] = await Promise.all([
+    db.query.trainingPrograms.findFirst({
+      where: and(eq(trainingPrograms.userId, userId), eq(trainingPrograms.active, true)),
+    }),
+    getTodayCompletedSession(userId),
+  ]);
+
+  if (activeResult) {
     initialProgram = {
-      id:            active.id,
-      name:          active.name ?? "",
-      splitType:     active.splitType ?? "",
-      currentWeek:   active.currentWeek ?? 1,
-      durationWeeks: active.durationWeeks ?? 12,
+      id:            activeResult.id,
+      name:          activeResult.name ?? "",
+      splitType:     activeResult.splitType ?? "",
+      currentWeek:   activeResult.currentWeek ?? 1,
+      durationWeeks: activeResult.durationWeeks ?? 12,
     };
-    // getTodaysProgramDay se ejecuta en el cliente (hora local del usuario, no UTC del servidor)
+  }
+
+  if (todayResult.data) {
+    todaySession = {
+      ...todayResult.data,
+      completedAt: todayResult.data.completedAt.toISOString(),
+    };
   }
 }
 ---
@@ -42,6 +55,7 @@ if (userId) {
       <WorkoutTracker
         userId={userId}
         initialProgram={initialProgram}
+        todaySession={todaySession}
         client:load
       />
     )}
