@@ -556,6 +556,7 @@ export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) 
     } catch (e) {
       console.error("Error completando sesión:", e);
     }
+    setStartTime(null); // congela elapsedTime — el timer deja de correr
     setShowRating(false);
     setShowSummary(true);
   };
@@ -972,9 +973,12 @@ export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) 
               { label: "TIEMPO", value: formatTime(elapsedTime), color: "#fff" },
               {
                 label: "VOLUMEN",
-                value: sessionVolume > 0
-                  ? `${Math.round(sessionVolume).toLocaleString("es-ES")} KG`
-                  : `${completedSets.length} SETS`,
+                value: completedSets.length > 0
+                  ? `${completedSets.length} SETS`
+                  : "—",
+                sub: sessionVolume > 0
+                  ? `${Math.round(sessionVolume).toLocaleString("es-ES")} KG TOTALES`
+                  : undefined,
                 color: "#34d399",
               },
               { label: "RPE", value: `${sessionRpe}/10`, color: "#60a5fa" },
@@ -982,6 +986,9 @@ export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) 
               <div key={stat.label} style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "1.25rem", padding: "1.25rem", textAlign: "center" }}>
                 <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "0.5rem" }}>{stat.label}</p>
                 <p style={{ fontSize: "clamp(1.1rem,3vw,1.75rem)", fontWeight: 900, color: stat.color }}>{stat.value}</p>
+                {"sub" in stat && stat.sub && (
+                  <p style={{ fontSize: "8px", fontWeight: 700, color: "rgba(52,211,153,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: "0.25rem" }}>{stat.sub}</p>
+                )}
               </div>
             ))}
           </div>
@@ -993,26 +1000,43 @@ export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) 
                 BREAKDOWN POR EJERCICIO
               </p>
               {exercises.map((ex, i) => {
-                const exVol = ex.sets.filter(s => s.completed).reduce((a, s) => a + s.weightKg * s.reps, 0);
-                const done  = ex.sets.filter(s => s.completed).length;
+                const doneSets = ex.sets.filter(s => s.completed);
+                const exVol    = doneSets.reduce((a, s) => a + s.weightKg * s.reps, 0);
+                // Best set by weight
+                const bestSet  = doneSets.length > 0
+                  ? doneSets.reduce((best, s) => s.weightKg > best.weightKg ? s : best, doneSets[0])
+                  : null;
                 return (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: i < exercises.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <div>
-                      <p style={{ fontSize: "12px", fontWeight: 900, color: "#fff", textTransform: "uppercase" }}>{ex.name}</p>
-                      <p style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>
-                        {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup} · {done} sets
-                      </p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: "12px", fontWeight: 900, color: "rgba(255,255,255,0.6)" }}>
-                        {exVol > 0 ? `${exVol.toLocaleString("es-ES", { maximumFractionDigits: 0 })} KG` : `${done} sets`}
-                      </p>
-                      {ex.estimatedOneRM && (
-                        <p style={{ fontSize: "8px", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase" }}>
-                          1RM ~{ex.estimatedOneRM} KG
+                  <div key={i} style={{ padding: "0.625rem 0", borderBottom: i < exercises.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <p style={{ fontSize: "12px", fontWeight: 900, color: "#fff", textTransform: "uppercase" }}>{ex.name}</p>
+                        <p style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginTop: "2px" }}>
+                          {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup}
                         </p>
-                      )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <p style={{ fontSize: "12px", fontWeight: 900, color: "rgba(255,255,255,0.7)" }}>
+                          {doneSets.length} sets
+                        </p>
+                        {ex.estimatedOneRM && (
+                          <p style={{ fontSize: "8px", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase" }}>
+                            1RM ~{ex.estimatedOneRM} KG
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    {/* Per-set breakdown */}
+                    {doneSets.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", marginTop: "0.5rem" }}>
+                        {doneSets.map((s, si) => (
+                          <span key={si} style={{ fontSize: "9px", fontWeight: 700, color: s === bestSet ? "#34d399" : "rgba(255,255,255,0.35)", background: s === bestSet ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)", border: `1px solid ${s === bestSet ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)"}`, borderRadius: "6px", padding: "2px 7px", textTransform: "uppercase" }}>
+                            {s.weightKg > 0 ? `${s.weightKg}kg` : "BW"} × {s.reps}
+                            {s.rir != null && s.rir >= 0 ? ` · RIR ${s.rir}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
