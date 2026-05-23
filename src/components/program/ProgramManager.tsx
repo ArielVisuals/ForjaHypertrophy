@@ -4,35 +4,121 @@ import { MASTER_PROGRAMS, SPLIT_SCHEDULES, MUSCLE_GROUP_LABELS, type MasterProgr
 
 const DAY_NAMES = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 
-function WeeklyScheduleView({ splitType }: { splitType: string }) {
+function WeeklyScheduleView({
+  splitType,
+  selectedDay,
+  onDaySelect,
+}: {
+  splitType: string;
+  selectedDay: number | null;
+  onDaySelect: (idx: number | null) => void;
+}) {
   const schedule = SPLIT_SCHEDULES[splitType];
+  // 0=Sun … 6=Sat — same index as schedule array
+  const todayIdx = new Date().getDay();
+
   if (!schedule) return (
     <p className="text-[8px] font-black text-white/20 uppercase tracking-widest text-center py-3">
       Esquema personalizado — ajusta en el entrenamiento
     </p>
   );
 
+  const detail = selectedDay !== null ? schedule[selectedDay] : null;
+
   return (
-    <div className="grid grid-cols-7 gap-1 pt-2">
-      {schedule.map((day, i) => (
-        <div key={i} className={`rounded-xl p-2 text-center space-y-1.5 ${day ? "bg-blue-600/10 border border-blue-500/15" : "bg-white/[0.02] border border-white/[0.04]"}`}>
-          <p className="text-[7px] font-black uppercase tracking-widest text-white/20">{DAY_NAMES[i]}</p>
-          {day ? (
-            <>
-              <p className="text-[8px] font-black text-white uppercase tracking-tight leading-tight line-clamp-2">{day.shortName}</p>
-              <div className="flex flex-wrap gap-0.5 justify-center">
-                {day.focusMuscles.slice(0, 2).map(m => (
-                  <span key={m} className="text-[6px] font-black text-blue-400/60 uppercase tracking-widest whitespace-nowrap">
-                    {(MUSCLE_GROUP_LABELS[m] ?? m).slice(0, 4)}
-                  </span>
+    <div className="space-y-3 pt-2">
+      {/* 7-col grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {schedule.map((day, i) => {
+          const isToday    = i === todayIdx;
+          const isSelected = i === selectedDay;
+          return (
+            <button
+              key={i}
+              onClick={() => onDaySelect(isSelected ? null : i)}
+              className={`rounded-xl p-2 text-center space-y-1.5 transition-all ${
+                isSelected
+                  ? "bg-blue-600/30 border border-blue-500/50"
+                  : isToday
+                  ? "bg-blue-600/15 border border-blue-500/30"
+                  : day
+                  ? "bg-blue-600/10 border border-blue-500/15 hover:bg-blue-600/20"
+                  : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04]"
+              }`}
+            >
+              <p className={`text-[7px] font-black uppercase tracking-widest flex items-center justify-center gap-0.5 ${isToday ? "text-blue-400" : "text-white/20"}`}>
+                {DAY_NAMES[i]}
+                {isToday && <span className="w-1 h-1 rounded-full bg-blue-500 inline-block shrink-0" />}
+              </p>
+              {day && !day.isRest ? (
+                <>
+                  <p className="text-[8px] font-black text-white uppercase tracking-tight leading-tight line-clamp-2">{day.shortName}</p>
+                  <div className="flex flex-wrap gap-0.5 justify-center">
+                    {day.focusMuscles.slice(0, 2).map(m => (
+                      <span key={m} className="text-[6px] font-black text-blue-400/60 uppercase tracking-widest whitespace-nowrap">
+                        {(MUSCLE_GROUP_LABELS[m] ?? m).slice(0, 4)}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-[7px] font-black text-white/10 uppercase tracking-widest">DESC</p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Day detail panel */}
+      <AnimatePresence>
+        {selectedDay !== null && (
+          <motion.div
+            key={selectedDay}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            {detail && !detail.isRest ? (
+              <div className="pt-2 space-y-1.5">
+                <div className="flex items-center justify-between pb-1">
+                  <p className="text-[7px] font-black text-white/20 uppercase tracking-[0.35em]">
+                    {detail.name} · {detail.exercises.length} MOVIMIENTOS
+                  </p>
+                  {selectedDay === todayIdx && (
+                    <a
+                      href="/workout"
+                      className="px-3 py-1 rounded-lg bg-blue-600/20 border border-blue-500/30 text-[7px] font-black text-blue-400 uppercase tracking-widest hover:bg-blue-600/30 transition-all"
+                    >
+                      FORJAR HOY →
+                    </a>
+                  )}
+                </div>
+                {detail.exercises.map((ex, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.07] transition-all">
+                    <span className="text-[8px] font-black text-white/15 tabular-nums w-3 text-center shrink-0">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black text-white uppercase tracking-tight leading-tight truncate">{ex.name}</p>
+                      {ex.notes && (
+                        <p className="text-[8px] font-bold text-blue-400/50 uppercase tracking-widest truncate">{ex.notes}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] font-black text-white/50 tabular-nums">{ex.targetSets} × {ex.repRange}</p>
+                      <p className="text-[7px] font-bold text-white/20 uppercase tracking-widest">RIR {ex.rirTarget}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <p className="text-[7px] font-black text-white/10 uppercase tracking-widest">DESC</p>
-          )}
-        </div>
-      ))}
+            ) : (
+              <div className="pt-2 px-3 py-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-center">
+                <p className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest">Día de Recuperación</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -147,6 +233,7 @@ export function ProgramManager({ userId }: ProgramManagerProps) {
   const [showBuilder, setShowBuilder] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedSchedule, setExpandedSchedule] = useState<string | null>(null);
+  const [selectedDayMap, setSelectedDayMap] = useState<Record<string, number | null>>({});
   const [confirmingAdvance, setConfirmingAdvance] = useState<string | null>(null);
   const [draft, setDraft] = useState<BuilderDraft>({
     name: "",
@@ -536,7 +623,11 @@ export function ProgramManager({ userId }: ProgramManagerProps) {
                     {/* Weekly schedule toggle */}
                     <div className="mt-4">
                       <button
-                        onClick={() => setExpandedSchedule(expandedSchedule === p.id ? null : p.id)}
+                        onClick={() => {
+                          const next = expandedSchedule === p.id ? null : p.id;
+                          setExpandedSchedule(next);
+                          if (!next) setSelectedDayMap(prev => ({ ...prev, [p.id]: null }));
+                        }}
                         className="w-full flex items-center justify-between py-2.5 px-1 text-[8px] font-black text-white/20 uppercase tracking-widest hover:text-white/40 transition-colors"
                       >
                         <span>HORARIO SEMANAL</span>
@@ -551,7 +642,11 @@ export function ProgramManager({ userId }: ProgramManagerProps) {
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                             className="overflow-hidden"
                           >
-                            <WeeklyScheduleView splitType={p.splitType} />
+                            <WeeklyScheduleView
+                              splitType={p.splitType}
+                              selectedDay={selectedDayMap[p.id] ?? null}
+                              onDaySelect={idx => setSelectedDayMap(prev => ({ ...prev, [p.id]: idx }))}
+                            />
                           </motion.div>
                         )}
                       </AnimatePresence>

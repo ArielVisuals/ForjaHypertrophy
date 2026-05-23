@@ -56,9 +56,11 @@ interface PrAlert {
 }
 
 interface ActiveProgram {
+  id: string;
   name: string;
   splitType: string;
   currentWeek: number;
+  durationWeeks: number;
 }
 
 export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
@@ -76,6 +78,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
   const [prAlert, setPrAlert]             = useState<PrAlert | null>(null);
   const [sessionPrs, setSessionPrs]       = useState<PrAlert[]>([]);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
+  const [weekAdvanced, setWeekAdvanced]   = useState(false);
   const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(null);
   const [selectorFilter, setSelectorFilter] = useState<MuscleGroup | "all">("all");
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -508,6 +511,20 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
       .reduce((acc, s) => acc + s.weightKg * s.reps, 0);
     setSessionVolume(volume);
     setShowRating(true);
+  };
+
+  const advanceWeek = async () => {
+    if (!activeProgram || weekAdvanced) return;
+    try {
+      await fetch("/api/programs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "advance-week", programId: activeProgram.id }),
+      });
+      setWeekAdvanced(true);
+    } catch (e) {
+      console.error("Error advancing week:", e);
+    }
   };
 
   const submitRating = async () => {
@@ -1031,6 +1048,33 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
               </button>
             </div>
           </div>
+
+          {/* Week advance prompt */}
+          {activeProgram && activeProgram.currentWeek < activeProgram.durationWeeks && !weekAdvanced && (
+            <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: "1.25rem", padding: "1.25rem", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+              <div>
+                <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(96,165,250,0.6)", textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: "0.25rem" }}>
+                  {activeProgram.name}
+                </p>
+                <p style={{ fontSize: "13px", fontWeight: 900, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.01em" }}>
+                  ¿Avanzar a semana {activeProgram.currentWeek + 1}?
+                </p>
+              </div>
+              <button
+                onClick={advanceWeek}
+                style={{ padding: "0.625rem 1.25rem", borderRadius: "0.875rem", background: "#2563eb", color: "#fff", fontWeight: 900, fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.15em", border: "none", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                Avanzar →
+              </button>
+            </div>
+          )}
+          {weekAdvanced && (
+            <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: "1.25rem", padding: "1rem", marginBottom: "1rem", textAlign: "center" }}>
+              <p style={{ fontSize: "9px", fontWeight: 900, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.2em" }}>
+                ✓ Semana {activeProgram!.currentWeek + 1} desbloqueada
+              </p>
+            </div>
+          )}
 
           <button
             onClick={() => { setSessionPrs([]); window.location.href = "/dashboard"; }}
