@@ -371,7 +371,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
   const prev = measurements[1] || {};
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12" style={{ width: "100%" }}>
       {/* Tab Navigation + Quick Weight */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         {/* Tabs — full width on mobile, auto on desktop */}
@@ -581,9 +581,9 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="max-w-2xl mx-auto"
+            style={{ width: "100%" }}
           >
-            <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-20" style={{ maxWidth: "42rem", marginLeft: "auto", marginRight: "auto" }}>
 
               {/* 01 — Composición Básica */}
               <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
