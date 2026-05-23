@@ -8,7 +8,6 @@ import { WorkoutHistoryPanel } from "./WorkoutHistoryPanel";
 import { BodyMeasurementsChart } from "./BodyMeasurementsChart";
 import { MeasurementTimeline } from "./MeasurementTimeline";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
-import { NumberDrum } from "@/components/ui/NumberDrum";
 
 type Tab = "lab" | "scan" | "prs" | "history";
 
@@ -67,6 +66,202 @@ async function compressImage(file: File, maxWidth = 900, quality = 0.78): Promis
     reader.readAsDataURL(file);
   });
 }
+
+// ─── Scanner input components ────────────────────────────────────────────────
+
+interface MeasurementInputProps {
+  label: string;
+  unit: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+}
+
+function MeasurementRow({ label, unit, value, onChange, min, max, step }: MeasurementInputProps) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const precision = step.toString().split(".")[1]?.length ?? 0;
+  const fmt = (v: number) => precision > 0 ? v.toFixed(precision) : String(Math.round(v));
+  const clamp = (v: number) => Math.min(max, Math.max(min, parseFloat(v.toFixed(precision))));
+
+  const startEditing = () => {
+    setInputVal(fmt(value));
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
+  };
+
+  const commitEdit = () => {
+    const v = parseFloat(inputVal);
+    if (!isNaN(v)) onChange(clamp(v));
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-4 border-b border-white/[0.05] last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">{label}</p>
+        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">{unit}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => onChange(clamp(parseFloat((value - step).toFixed(precision))))}
+          style={{ width: 52, height: 52 }}
+          className="rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 font-black text-xl hover:bg-white/10 hover:text-white active:scale-95 transition-all select-none"
+        >
+          −
+        </button>
+        <div style={{ width: 72 }} className="text-center">
+          {editing ? (
+            <input
+              ref={inputRef}
+              type="number"
+              inputMode="decimal"
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={e => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") setEditing(false);
+              }}
+              className="w-full text-center text-2xl font-black text-white bg-white/[0.06] border border-blue-500/50 rounded-xl py-2.5 outline-none"
+              style={{ height: 52 }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="w-full text-center text-2xl font-black text-white rounded-xl hover:bg-white/[0.04] transition-all"
+              style={{ height: 52 }}
+            >
+              {fmt(value)}
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(clamp(parseFloat((value + step).toFixed(precision))))}
+          style={{ width: 52, height: 52 }}
+          className="rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 font-black text-xl hover:bg-white/10 hover:text-white active:scale-95 transition-all select-none"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MeasurementCard({ label, unit, value, onChange, min, max, step }: MeasurementInputProps) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const precision = step.toString().split(".")[1]?.length ?? 0;
+  const fmt = (v: number) => precision > 0 ? v.toFixed(precision) : String(Math.round(v));
+  const clamp = (v: number) => Math.min(max, Math.max(min, parseFloat(v.toFixed(precision))));
+
+  const startEditing = () => {
+    setInputVal(fmt(value));
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
+  };
+
+  const commitEdit = () => {
+    const v = parseFloat(inputVal);
+    if (!isNaN(v)) onChange(clamp(v));
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div>
+        <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{label}</p>
+        <p className="text-[7px] font-black text-white/15 uppercase tracking-widest">{unit}</p>
+      </div>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => onChange(clamp(parseFloat((value - step).toFixed(precision))))}
+          style={{ height: 44 }}
+          className="flex-1 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/50 font-black text-base hover:bg-white/10 hover:text-white active:scale-95 transition-all select-none"
+        >
+          −
+        </button>
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="number"
+            inputMode="decimal"
+            value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={e => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className="flex-1 text-center text-base font-black text-white bg-white/[0.06] border border-blue-500/50 rounded-xl outline-none"
+            style={{ height: 44 }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startEditing}
+            style={{ height: 44 }}
+            className="flex-1 text-center text-base font-black text-white rounded-xl hover:bg-white/[0.04] transition-all"
+          >
+            {fmt(value)}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onChange(clamp(parseFloat((value + step).toFixed(precision))))}
+          style={{ height: 44 }}
+          className="flex-1 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/50 font-black text-base hover:bg-white/10 hover:text-white active:scale-95 transition-all select-none"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BiofeedbackStrip({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">{label}</p>
+        <p className="text-2xl font-black text-purple-300 tabular-nums leading-none">
+          {value}<span className="text-[10px] font-black text-white/20 ml-1">/10</span>
+        </p>
+      </div>
+      <div className="flex gap-1.5">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            style={{ height: 40 }}
+            className={`flex-1 rounded-lg border transition-all active:scale-95 ${
+              n <= value
+                ? "bg-purple-500/25 border-purple-500/40"
+                : "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]"
+            }`}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between px-0.5">
+        <span className="text-[7px] font-black text-white/15 uppercase tracking-widest">BAJO</span>
+        <span className="text-[7px] font-black text-white/15 uppercase tracking-widest">ALTO</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function ProgressTracker({ userId }: ProgressTrackerProps) {
   const [activeTab, setActiveTab] = useState<Tab>("lab");
@@ -379,30 +574,31 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
           </motion.div>
         )}
 
-        {/* TAB: ESCÁNER (FORMULARIO) */}
+        {/* TAB: ESCÁNER */}
         {activeTab === "scan" && (
           <motion.div
             key="scan"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="max-w-4xl mx-auto"
+            className="max-w-2xl mx-auto"
           >
-            <form onSubmit={handleSubmit} className="space-y-12 pb-20">
-              {/* Sección Composición */}
-              <div className="p-8 sm:p-10 rounded-[3rem] bg-[#0A0A0B] border border-white/10 space-y-8">
-                <h3 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em]">01. COMPOSICIÓN BÁSICA</h3>
-                <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                  <NumberDrum
-                    label="PESO CORPORAL"
-                    unit="KG"
+            <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+
+              {/* 01 — Composición Básica */}
+              <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
+                <div className="px-6 pt-6 pb-3">
+                  <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-[0.35em]">01 — COMPOSICIÓN</h3>
+                </div>
+                <div className="px-6 pb-4">
+                  <MeasurementRow
+                    label="PESO CORPORAL" unit="KG"
                     value={formData.weightKg ?? 70}
                     onChange={v => setFormData({ ...formData, weightKg: v })}
                     min={30} max={250} step={0.1}
                   />
-                  <NumberDrum
-                    label="% GRASA"
-                    unit="%"
+                  <MeasurementRow
+                    label="GRASA CORPORAL" unit="%"
                     value={formData.bodyFatPercentage ?? 15}
                     onChange={v => setFormData({ ...formData, bodyFatPercentage: v })}
                     min={3} max={50} step={0.1}
@@ -410,63 +606,145 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
                 </div>
               </div>
 
-              {/* Sección Antropometría Tren Superior */}
-              <div className="p-8 sm:p-10 rounded-[3rem] bg-[#0A0A0B] border border-white/10 space-y-8">
-                <h3 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em]">02. TREN SUPERIOR (CM)</h3>
-
-                {/* Cuello, Hombros, Pecho */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-5">
-                  <NumberDrum label="CUELLO" unit="cm" value={formData.neckCm ?? 38} onChange={v => setFormData({ ...formData, neckCm: v })} min={25} max={65} step={0.5} />
-                  <NumberDrum label="HOMBROS" unit="cm" value={formData.shouldersCm ?? 110} onChange={v => setFormData({ ...formData, shouldersCm: v })} min={80} max={200} step={0.5} />
-                  <NumberDrum label="PECHO" unit="cm" value={formData.chestCm ?? 95} onChange={v => setFormData({ ...formData, chestCm: v })} min={60} max={180} step={0.5} />
+              {/* 02 — Tren Superior */}
+              <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
+                <div className="px-6 pt-6 pb-3">
+                  <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-[0.35em]">02 — TREN SUPERIOR</h3>
                 </div>
-
-                {/* Brazos bilaterales */}
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.25em]">SIMETRÍA BRAZOS</p>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <NumberDrum label="IZQUIERDO" unit="cm" value={formData.armLeftCm ?? 35} onChange={v => setFormData({ ...formData, armLeftCm: v })} min={20} max={65} step={0.5} />
-                    <NumberDrum label="DERECHO" unit="cm" value={formData.armRightCm ?? 35} onChange={v => setFormData({ ...formData, armRightCm: v })} min={20} max={65} step={0.5} />
-                  </div>
+                <div className="px-6">
+                  <MeasurementRow
+                    label="CUELLO" unit="CM"
+                    value={formData.neckCm ?? 38}
+                    onChange={v => setFormData({ ...formData, neckCm: v })}
+                    min={25} max={65} step={0.5}
+                  />
+                  <MeasurementRow
+                    label="HOMBROS" unit="CM"
+                    value={formData.shouldersCm ?? 110}
+                    onChange={v => setFormData({ ...formData, shouldersCm: v })}
+                    min={80} max={200} step={0.5}
+                  />
+                  <MeasurementRow
+                    label="PECHO" unit="CM"
+                    value={formData.chestCm ?? 95}
+                    onChange={v => setFormData({ ...formData, chestCm: v })}
+                    min={60} max={180} step={0.5}
+                  />
                 </div>
-
-                {/* Antebrazos bilaterales */}
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.25em]">SIMETRÍA ANTEBRAZOS</p>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <NumberDrum label="IZQUIERDO" unit="cm" value={formData.forearmLeftCm ?? 28} onChange={v => setFormData({ ...formData, forearmLeftCm: v })} min={15} max={55} step={0.5} />
-                    <NumberDrum label="DERECHO" unit="cm" value={formData.forearmRightCm ?? 28} onChange={v => setFormData({ ...formData, forearmRightCm: v })} min={15} max={55} step={0.5} />
-                  </div>
+                <div className="px-6 pt-5 pb-2">
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">SIMETRÍA — BRAZOS</p>
+                </div>
+                <div className="px-6 pb-4 grid grid-cols-2 gap-2">
+                  <MeasurementCard
+                    label="IZQUIERDO" unit="CM"
+                    value={formData.armLeftCm ?? 35}
+                    onChange={v => setFormData({ ...formData, armLeftCm: v })}
+                    min={20} max={65} step={0.5}
+                  />
+                  <MeasurementCard
+                    label="DERECHO" unit="CM"
+                    value={formData.armRightCm ?? 35}
+                    onChange={v => setFormData({ ...formData, armRightCm: v })}
+                    min={20} max={65} step={0.5}
+                  />
+                </div>
+                <div className="px-6 pb-2">
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">SIMETRÍA — ANTEBRAZOS</p>
+                </div>
+                <div className="px-6 pb-6 grid grid-cols-2 gap-2">
+                  <MeasurementCard
+                    label="IZQUIERDO" unit="CM"
+                    value={formData.forearmLeftCm ?? 28}
+                    onChange={v => setFormData({ ...formData, forearmLeftCm: v })}
+                    min={15} max={55} step={0.5}
+                  />
+                  <MeasurementCard
+                    label="DERECHO" unit="CM"
+                    value={formData.forearmRightCm ?? 28}
+                    onChange={v => setFormData({ ...formData, forearmRightCm: v })}
+                    min={15} max={55} step={0.5}
+                  />
                 </div>
               </div>
 
-              {/* Sección Biofeedback */}
-              <div className="p-10 rounded-[3rem] bg-[#0A0A0B] border border-white/10 space-y-8">
-                <h3 className="text-xs font-black text-purple-500 uppercase tracking-[0.3em]">03. BIOFEEDBACK (ESCALA 1-10)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   {[
-                     { id: 'sleepQuality', label: 'SUEÑO' },
-                     { id: 'energyLevel', label: 'ENERGÍA' },
-                     { id: 'stressLevel', label: 'ESTRÉS' }
-                   ].map(field => (
-                     <div key={field.id} className="space-y-3">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">{field.label}</label>
-                        <input 
-                          type="range" min="1" max="10"
-                          className="w-full accent-blue-500 h-2 bg-white/5 rounded-lg appearance-none cursor-pointer"
-                          value={(formData as any)[field.id] || 5}
-                          onChange={e => setFormData({...formData, [field.id]: parseInt(e.target.value)})}
-                        />
-                        <div className="text-center text-xl font-black text-white">{(formData as any)[field.id] || 5}</div>
-                     </div>
-                   ))}
+              {/* 03 — Tren Inferior */}
+              <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
+                <div className="px-6 pt-6 pb-3">
+                  <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-[0.35em]">03 — TREN INFERIOR</h3>
+                </div>
+                <div className="px-6">
+                  <MeasurementRow
+                    label="CINTURA" unit="CM"
+                    value={formData.waistCm ?? 80}
+                    onChange={v => setFormData({ ...formData, waistCm: v })}
+                    min={50} max={160} step={0.5}
+                  />
+                  <MeasurementRow
+                    label="CADERA" unit="CM"
+                    value={formData.hipsCm ?? 95}
+                    onChange={v => setFormData({ ...formData, hipsCm: v })}
+                    min={60} max={180} step={0.5}
+                  />
+                </div>
+                <div className="px-6 pt-5 pb-2">
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">SIMETRÍA — MUSLOS</p>
+                </div>
+                <div className="px-6 pb-4 grid grid-cols-2 gap-2">
+                  <MeasurementCard
+                    label="IZQUIERDO" unit="CM"
+                    value={formData.thighLeftCm ?? 55}
+                    onChange={v => setFormData({ ...formData, thighLeftCm: v })}
+                    min={30} max={100} step={0.5}
+                  />
+                  <MeasurementCard
+                    label="DERECHO" unit="CM"
+                    value={formData.thighRightCm ?? 55}
+                    onChange={v => setFormData({ ...formData, thighRightCm: v })}
+                    min={30} max={100} step={0.5}
+                  />
+                </div>
+                <div className="px-6 pb-2">
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">SIMETRÍA — GEMELOS</p>
+                </div>
+                <div className="px-6 pb-6 grid grid-cols-2 gap-2">
+                  <MeasurementCard
+                    label="IZQUIERDO" unit="CM"
+                    value={formData.calfLeftCm ?? 37}
+                    onChange={v => setFormData({ ...formData, calfLeftCm: v })}
+                    min={25} max={75} step={0.5}
+                  />
+                  <MeasurementCard
+                    label="DERECHO" unit="CM"
+                    value={formData.calfRightCm ?? 37}
+                    onChange={v => setFormData({ ...formData, calfRightCm: v })}
+                    min={25} max={75} step={0.5}
+                  />
                 </div>
               </div>
 
-              {/* Sección Foto de Progreso */}
-              <div className="p-10 rounded-[3rem] bg-[#0A0A0B] border border-white/10 space-y-6">
-                <h3 className="text-xs font-black text-emerald-500 uppercase tracking-[0.3em]">04. FOTO DE PROGRESO (OPCIONAL)</h3>
+              {/* 04 — Biofeedback */}
+              <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 px-6 py-6 space-y-8">
+                <h3 className="text-[9px] font-black text-purple-400 uppercase tracking-[0.35em]">04 — BIOFEEDBACK</h3>
+                <BiofeedbackStrip
+                  label="CALIDAD DE SUEÑO"
+                  value={formData.sleepQuality ?? 5}
+                  onChange={v => setFormData({ ...formData, sleepQuality: v })}
+                />
+                <BiofeedbackStrip
+                  label="NIVEL DE ENERGÍA"
+                  value={formData.energyLevel ?? 5}
+                  onChange={v => setFormData({ ...formData, energyLevel: v })}
+                />
+                <BiofeedbackStrip
+                  label="NIVEL DE ESTRÉS"
+                  value={formData.stressLevel ?? 5}
+                  onChange={v => setFormData({ ...formData, stressLevel: v })}
+                />
+              </div>
 
+              {/* 05 — Foto de Progreso */}
+              <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 px-6 py-6 space-y-5">
+                <h3 className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.35em]">05 — FOTO DE PROGRESO</h3>
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -475,31 +753,28 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
                   className="hidden"
                   onChange={handlePhotoSelect}
                 />
-
                 {photoPreview ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="relative rounded-2xl overflow-hidden">
                       <img
                         src={photoPreview}
                         alt="Vista previa"
-                        className="w-full max-h-72 object-cover"
+                        className="w-full max-h-64 object-cover"
                         style={{ objectPosition: "top" }}
                       />
                       <button
                         type="button"
                         onClick={() => { setPhotoPreview(null); if (photoInputRef.current) photoInputRef.current.value = ""; }}
-                        className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-black/60 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/80 transition-all text-sm"
+                        className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-black/60 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/80 transition-all"
                       >
                         ✕
                       </button>
                     </div>
-                    <p className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest text-center">
-                      FOTO LISTA — SE GUARDARÁ CON ESTE CHECKPOINT
-                    </p>
+                    <p className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest text-center">FOTO LISTA</p>
                     <button
                       type="button"
                       onClick={() => photoInputRef.current?.click()}
-                      className="w-full py-3 rounded-2xl border border-dashed border-white/10 text-[9px] font-black text-white/25 uppercase tracking-widest hover:border-white/20 hover:text-white/40 transition-all"
+                      className="w-full py-3 rounded-xl border border-dashed border-white/10 text-[9px] font-black text-white/25 uppercase tracking-widest hover:border-white/20 hover:text-white/40 transition-all"
                     >
                       Cambiar foto
                     </button>
@@ -511,7 +786,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
                     disabled={compressingPhoto}
                     className="w-full py-8 rounded-2xl border border-dashed border-white/10 flex flex-col items-center gap-3 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all group disabled:opacity-40"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 group-hover:text-emerald-400 group-hover:bg-emerald-500/10 transition-all text-xl">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/20 group-hover:text-emerald-400 group-hover:bg-emerald-500/10 transition-all text-lg">
                       📷
                     </div>
                     <span className="text-[9px] font-black text-white/20 uppercase tracking-widest group-hover:text-white/40 transition-all">
@@ -523,7 +798,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
 
               <button
                 type="submit"
-                className="w-full py-6 rounded-[2rem] bg-blue-600 text-white font-black uppercase tracking-[0.3em] shadow-2xl shadow-blue-600/20 hover:bg-blue-500 transition-all active:scale-[0.98]"
+                className="w-full py-5 rounded-[1.5rem] bg-blue-600 text-white font-black uppercase tracking-[0.3em] text-[11px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all active:scale-[0.98]"
               >
                 Sincronizar Laboratorio
               </button>
