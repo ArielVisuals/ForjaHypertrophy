@@ -23,7 +23,11 @@ const { userId } = Astro.locals.auth();
     </div>
 
     <!-- Progress Tracker Component -->
-    {userId && <ProgressTracker userId={userId} client:load />}
+    {userId && (
+      <div class="w-full">
+        <ProgressTracker userId={userId} client:load />
+      </div>
+    )}
 
     <div class="h-16 md:h-0"></div>
   </div>
