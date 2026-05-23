@@ -49,9 +49,10 @@ export const POST: APIRoute = async ({ request }) => {
   const { action, ...data } = body;
 
   if (action === "create") {
+    const { localDate, ...rest } = data;
     const { data: session, error } = await createWorkout({
-      ...data,
-      date: new Date().toISOString().split("T")[0]
+      ...rest,
+      date: localDate ?? new Date().toISOString().split("T")[0],
     });
     if (error) return new Response(JSON.stringify({ error }), { status: 500 });
     return new Response(JSON.stringify(session), { status: 200 });

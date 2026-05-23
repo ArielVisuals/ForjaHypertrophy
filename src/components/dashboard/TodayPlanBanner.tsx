@@ -10,13 +10,16 @@ interface ActiveProgram {
 
 interface TodayPlanBannerProps {
   activeProgram: ActiveProgram;
-  alreadyTrained?: boolean;
+  lastSessionDate?: string | null; // "YYYY-MM-DD" from DB; browser compares to its local date
 }
 
-export function TodayPlanBanner({ activeProgram, alreadyTrained = false }: TodayPlanBannerProps) {
+export function TodayPlanBanner({ activeProgram, lastSessionDate }: TodayPlanBannerProps) {
   const [todayPlan] = useState<ProgramDaySchedule | null>(() =>
     getTodaysProgramDay(activeProgram.splitType)
   );
+
+  const todayLocalDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" local
+  const alreadyTrained = !!lastSessionDate && lastSessionDate === todayLocalDate;
 
   const todayDayName = new Date()
     .toLocaleDateString("es-ES", { weekday: "long" })

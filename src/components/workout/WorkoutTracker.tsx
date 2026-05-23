@@ -17,6 +17,7 @@ import type { MuscleGroup } from "@/types/workout";
 interface TodaySessionSummary {
   id: string;
   name: string;
+  date: string;        // "YYYY-MM-DD" in user's local timezone
   completedAt: string;
   durationMinutes: number | null;
   overallRpe: number | null;
@@ -324,10 +325,12 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   }, [activeProgram, todayPlan]);
 
   const createSession = async (name: string) => {
+    // toLocaleDateString("en-CA") = "YYYY-MM-DD" in the user's local timezone
+    const localDate = new Date().toLocaleDateString("en-CA");
     const response = await fetch("/api/workouts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create", userId, name }),
+      body: JSON.stringify({ action: "create", userId, name, localDate }),
     });
     const data = await response.json();
     setSession(data);
@@ -576,7 +579,12 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   };
 
   // ─── YA ENTRENASTE HOY ────────────────────────────────────────────────────
-  if (todaySession && !session) {
+  // Compare session.date (stored from browser at creation time) vs today's local date.
+  // This is timezone-safe: the browser set the date, the browser checks the date.
+  const todayLocalDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" local
+  const alreadyTrainedToday = !!todaySession && todaySession.date === todayLocalDate;
+
+  if (alreadyTrainedToday && !session) {
     const s = todaySession;
     const totalSets = s.exercises.reduce((a, e) => a + e.sets.length, 0);
     const totalVol  = s.exercises.reduce(

@@ -100,7 +100,8 @@ const [
     ])
   : [{ data: [] }, { data: null }, { data: null }];
 
-const alreadyTrainedToday = !!todaySessionData;
+// Pass the date string to the client island; the browser compares it to its own local date.
+const lastSessionDate = todaySessionData?.date ?? null;
 ---
 
 <MainLayout title="Centro de Mando">
@@ -179,7 +180,7 @@ const alreadyTrainedToday = !!todaySessionData;
           currentWeek: activeProgram.currentWeek ?? 1,
           durationWeeks: activeProgram.durationWeeks ?? 12,
         }}
-        alreadyTrained={alreadyTrainedToday}
+        lastSessionDate={lastSessionDate}
         client:load
       />
     )}

@@ -797,6 +797,7 @@ export async function deleteWorkoutTemplate(id: string) {
 export interface TodaySessionSummary {
   id: string;
   name: string;
+  date: string;        // "YYYY-MM-DD" in user's local timezone — for client-side "is today?" check
   completedAt: Date;
   durationMinutes: number | null;
   overallRpe: number | null;
@@ -808,23 +809,21 @@ export interface TodaySessionSummary {
 }
 
 /**
- * Devuelve la sesión completada en las últimas 24 horas (si existe).
- * Usa ventana de 24 h para ser inmune a diferencias de timezone UTC vs local.
+ * Devuelve la sesión completada más reciente del usuario.
+ * El cliente compara session.date con la fecha local del browser para
+ * determinar si es "hoy" — evita cualquier problema de timezone servidor vs usuario.
  */
 export async function getTodayCompletedSession(
   userId: string
 ): Promise<{ data: TodaySessionSummary | null; error: unknown }> {
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
     const session = await db
       .select()
       .from(workoutSessions)
       .where(
         and(
           eq(workoutSessions.userId, userId),
-          isNotNull(workoutSessions.completedAt),
-          sql`${workoutSessions.completedAt} >= ${since}`
+          isNotNull(workoutSessions.completedAt)
         )
       )
       .orderBy(desc(workoutSessions.completedAt))
@@ -873,6 +872,7 @@ export async function getTodayCompletedSession(
       data: {
         id: session.id,
         name: session.name,
+        date: session.date,          // "YYYY-MM-DD" stored from client's local timezone
         completedAt: session.completedAt!,
         durationMinutes: session.durationMinutes,
         overallRpe: session.overallRpe,
