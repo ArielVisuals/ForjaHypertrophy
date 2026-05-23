@@ -102,38 +102,78 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
 
         {/* Left: SVG body */}
         <div className="relative shrink-0 flex items-center justify-center">
-          <svg
-            viewBox="0 0 200 420"
-            className="w-48 sm:w-56"
-            style={{ filter: "none" }}
-          >
-            {/* Body outline */}
-            <ellipse cx="100" cy="30" rx="20" ry="24" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            <rect x="84" y="52" width="32" height="14" rx="6" fill="rgba(255,255,255,0.04)" />
+          <svg viewBox="0 0 200 430" className="w-44 sm:w-52">
 
-            {/* Shoulders */}
-            <motion.ellipse
-              cx="58" cy="82" rx="22" ry="18"
-              fill={muscleColor("shoulders", getSets("shoulders"))}
-              style={{ filter: muscleGlow("shoulders", getSets("shoulders")) }}
-              onMouseEnter={() => setHovered("shoulders")}
-              onMouseLeave={() => setHovered(null)}
-              className="cursor-pointer transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-            />
-            <motion.ellipse
-              cx="142" cy="82" rx="22" ry="18"
-              fill={muscleColor("shoulders", getSets("shoulders"))}
-              style={{ filter: muscleGlow("shoulders", getSets("shoulders")) }}
-              onMouseEnter={() => setHovered("shoulders")}
-              onMouseLeave={() => setHovered(null)}
-              className="cursor-pointer transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-            />
+            {/* ── Non-interactive base shapes ─────────────────── */}
 
-            {/* Chest */}
+            {/* Head */}
+            <ellipse cx="100" cy="25" rx="19" ry="22"
+              fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.09)" strokeWidth="0.8" />
+
+            {/* Neck */}
+            <path d="M91 45 L109 45 L108 60 L92 60 Z"
+              fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.6" />
+
+            {/* Trapezius slope (neck → shoulders) */}
+            <path d="M92 54 Q72 58 52 74 L60 78 Q78 68 100 66 Q122 68 140 78 L148 74 Q128 58 108 54 Z"
+              fill="rgba(255,255,255,0.03)" />
+
+            {/* Left forearm */}
+            <path d="M22 163 Q14 192 18 220 Q22 232 36 234 Q50 232 54 220 Q58 192 50 163 Z"
+              fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.6" />
+
+            {/* Right forearm */}
+            <path d="M178 163 Q186 192 182 220 Q178 232 164 234 Q150 232 146 220 Q142 192 150 163 Z"
+              fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.6" />
+
+            {/* Hip connector */}
+            <path d="M70 176 Q68 193 76 207 L124 207 Q132 193 130 176 Z"
+              fill="rgba(255,255,255,0.025)" />
+
+            {/* Left calf */}
+            <path d="M56 308 Q50 350 56 378 Q62 390 78 392 Q90 390 94 378 Q100 350 98 308 Z"
+              fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.6" />
+
+            {/* Right calf */}
+            <path d="M144 308 Q150 350 144 378 Q138 390 122 392 Q110 390 106 378 Q100 350 102 308 Z"
+              fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.6" />
+
+            {/* ── Interactive muscle regions ───────────────────── */}
+
+            {/* BACK — upper-back overlay (behind chest) */}
             <motion.path
-              d="M76 68 Q100 74 124 68 Q130 90 124 108 Q100 116 76 108 Q70 90 76 68Z"
+              d="M70 66 Q54 76 48 100 L70 98 Q70 82 100 76 Q130 82 130 98 L152 100 Q146 76 130 66 Z"
+              fill={muscleColor("back", getSets("back"))}
+              style={{ filter: muscleGlow("back", getSets("back")), opacity: 0.38 }}
+              onMouseEnter={() => setHovered("back")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer"
+            />
+
+            {/* SHOULDERS — left deltoid */}
+            <motion.ellipse
+              cx="40" cy="88" rx="22" ry="20"
+              fill={muscleColor("shoulders", getSets("shoulders"))}
+              style={{ filter: muscleGlow("shoulders", getSets("shoulders")) }}
+              onMouseEnter={() => setHovered("shoulders")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+            />
+            {/* SHOULDERS — right deltoid */}
+            <motion.ellipse
+              cx="160" cy="88" rx="22" ry="20"
+              fill={muscleColor("shoulders", getSets("shoulders"))}
+              style={{ filter: muscleGlow("shoulders", getSets("shoulders")) }}
+              onMouseEnter={() => setHovered("shoulders")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+            />
+
+            {/* CHEST — left pec */}
+            <motion.path
+              d="M70 66 Q84 74 100 70 L100 112 Q82 118 68 112 Q60 90 70 66 Z"
               fill={muscleColor("chest", getSets("chest"))}
               style={{ filter: muscleGlow("chest", getSets("chest")) }}
               onMouseEnter={() => setHovered("chest")}
@@ -141,34 +181,43 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
               className="cursor-pointer transition-all duration-300"
               whileHover={{ scale: 1.03 }}
             />
-
-            {/* Arms (upper) */}
-            <motion.ellipse
-              cx="40" cy="118" rx="13" ry="32"
-              fill={muscleColor("arms", getSets("arms"))}
-              style={{ filter: muscleGlow("arms", getSets("arms")) }}
-              onMouseEnter={() => setHovered("arms")}
-              onMouseLeave={() => setHovered(null)}
-              className="cursor-pointer transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-            />
-            <motion.ellipse
-              cx="160" cy="118" rx="13" ry="32"
-              fill={muscleColor("arms", getSets("arms"))}
-              style={{ filter: muscleGlow("arms", getSets("arms")) }}
-              onMouseEnter={() => setHovered("arms")}
-              onMouseLeave={() => setHovered(null)}
-              className="cursor-pointer transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-            />
-
-            {/* Forearms */}
-            <ellipse cx="34" cy="168" rx="9" ry="24" fill="rgba(255,255,255,0.03)" />
-            <ellipse cx="166" cy="168" rx="9" ry="24" fill="rgba(255,255,255,0.03)" />
-
-            {/* Core */}
+            {/* CHEST — right pec */}
             <motion.path
-              d="M79 110 Q100 116 121 110 L124 168 Q100 176 76 168Z"
+              d="M130 66 Q116 74 100 70 L100 112 Q118 118 132 112 Q140 90 130 66 Z"
+              fill={muscleColor("chest", getSets("chest"))}
+              style={{ filter: muscleGlow("chest", getSets("chest")) }}
+              onMouseEnter={() => setHovered("chest")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-all duration-300"
+              whileHover={{ scale: 1.03 }}
+            />
+            {/* Sternum divider */}
+            <line x1="100" y1="66" x2="100" y2="112" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+
+            {/* ARMS — left upper (tapered path, wider at shoulder) */}
+            <motion.path
+              d="M42 82 Q28 96 22 136 Q20 158 26 167 Q34 173 44 169 Q54 165 56 144 Q60 106 56 82 Z"
+              fill={muscleColor("arms", getSets("arms"))}
+              style={{ filter: muscleGlow("arms", getSets("arms")) }}
+              onMouseEnter={() => setHovered("arms")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+            />
+            {/* ARMS — right upper */}
+            <motion.path
+              d="M158 82 Q172 96 178 136 Q180 158 174 167 Q166 173 156 169 Q146 165 144 144 Q140 106 144 82 Z"
+              fill={muscleColor("arms", getSets("arms"))}
+              style={{ filter: muscleGlow("arms", getSets("arms")) }}
+              onMouseEnter={() => setHovered("arms")}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+            />
+
+            {/* CORE */}
+            <motion.path
+              d="M70 112 Q100 122 130 112 L130 176 Q100 184 70 176 Z"
               fill={muscleColor("core", getSets("core"))}
               style={{ filter: muscleGlow("core", getSets("core")) }}
               onMouseEnter={() => setHovered("core")}
@@ -176,20 +225,12 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
               className="cursor-pointer transition-all duration-300"
               whileHover={{ scale: 1.02 }}
             />
+            {/* Center line for abs */}
+            <line x1="100" y1="112" x2="100" y2="176" stroke="rgba(0,0,0,0.18)" strokeWidth="0.8" />
 
-            {/* Back indicator (behind) */}
+            {/* LEGS — left quad (meets center at x=100, no overlap) */}
             <motion.path
-              d="M79 70 Q64 76 64 110 L76 110 Q76 90 100 84 Q124 90 124 110 L136 110 Q136 76 121 70Z"
-              fill={muscleColor("back", getSets("back"))}
-              style={{ filter: muscleGlow("back", getSets("back")), opacity: 0.4 }}
-              onMouseEnter={() => setHovered("back")}
-              onMouseLeave={() => setHovered(null)}
-              className="cursor-pointer"
-            />
-
-            {/* Legs (quads) */}
-            <motion.ellipse
-              cx="85" cy="238" rx="26" ry="54"
+              d="M76 205 Q56 218 54 270 Q56 306 78 312 Q95 316 100 312 L100 203 Q88 199 76 205 Z"
               fill={muscleColor("legs", getSets("legs"))}
               style={{ filter: muscleGlow("legs", getSets("legs")) }}
               onMouseEnter={() => setHovered("legs")}
@@ -197,8 +238,9 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
               className="cursor-pointer transition-all duration-300"
               whileHover={{ scale: 1.03 }}
             />
-            <motion.ellipse
-              cx="115" cy="238" rx="26" ry="54"
+            {/* LEGS — right quad */}
+            <motion.path
+              d="M124 205 Q144 218 146 270 Q144 306 122 312 Q105 316 100 312 L100 203 Q112 199 124 205 Z"
               fill={muscleColor("legs", getSets("legs"))}
               style={{ filter: muscleGlow("legs", getSets("legs")) }}
               onMouseEnter={() => setHovered("legs")}
@@ -207,17 +249,22 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
               whileHover={{ scale: 1.03 }}
             />
 
-            {/* Calves */}
-            <ellipse cx="83" cy="338" rx="16" ry="36" fill="rgba(255,255,255,0.03)" />
-            <ellipse cx="117" cy="338" rx="16" ry="36" fill="rgba(255,255,255,0.03)" />
-
-            {/* Outline body silhouette */}
+            {/* ── Outline silhouette ───────────────────────────── */}
+            {/* Head */}
+            <ellipse cx="100" cy="25" rx="19" ry="22"
+              fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+            {/* Body + arms outline */}
             <path
-              d="M80 54 L64 76 L36 96 L26 148 L32 196 L60 192 L76 168 L76 304 L64 300 L58 390 L82 392 L92 310 L108 310 L118 392 L142 390 L136 300 L124 304 L124 168 L140 192 L168 196 L174 148 L164 96 L136 76 L120 54 Z"
-              fill="none"
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth="1.5"
-            />
+              d="M92 45 Q74 50 54 72 Q32 80 18 90 Q10 114 14 156 Q18 172 32 174
+                 Q14 198 18 224 Q22 234 38 236 Q54 236 58 222 Q62 198 50 170
+                 Q60 172 70 112 L70 176 Q68 194 76 207
+                 Q56 220 54 272 Q56 308 56 380 Q62 392 80 394 Q94 392 100 382
+                 Q106 392 120 394 Q138 392 144 380 Q144 308 146 272
+                 Q144 220 124 207 Q132 194 130 176 L130 112
+                 Q140 172 150 170 Q138 198 142 222 Q146 236 162 236 Q178 236 182 224
+                 Q186 198 168 174 Q182 172 186 156 Q190 114 182 90
+                 Q168 80 146 72 Q126 50 108 45 Z"
+              fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
           </svg>
 
           {/* Hover tooltip */}
