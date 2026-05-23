@@ -1,14 +1,37 @@
 ---
 import MainLayout from "@/layouts/MainLayout.astro";
 import { WorkoutTracker } from "@/components/workout/WorkoutTracker";
+import { db } from "@/lib/db";
+import { trainingPrograms } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { getTodaysProgramDay } from "@/lib/constants/programs";
 
 const { userId } = Astro.locals.auth();
+
+let initialProgram = null;
+let initialPlan    = null;
+
+if (userId) {
+  const active = await db.query.trainingPrograms.findFirst({
+    where: and(eq(trainingPrograms.userId, userId), eq(trainingPrograms.active, true)),
+  });
+  if (active) {
+    initialProgram = {
+      id:            active.id,
+      name:          active.name ?? "",
+      splitType:     active.splitType ?? "",
+      currentWeek:   active.currentWeek ?? 1,
+      durationWeeks: active.durationWeeks ?? 12,
+    };
+    initialPlan = getTodaysProgramDay(active.splitType ?? "");
+  }
+}
 ---
 
 <MainLayout title="Entrenar">
   <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
 
-    <!-- Page Header: FORJA style, compact on mobile -->
+    <!-- Page Header -->
     <div class="mb-6 md:mb-10">
       <p class="text-[9px] font-black text-blue-500/40 uppercase tracking-[0.4em] mb-1 hidden sm:block">
         FORJA / ENTRENAMIENTO
@@ -18,7 +41,13 @@ const { userId } = Astro.locals.auth();
       </h1>
     </div>
 
-    <!-- Workout Tracker Component -->
-    {userId && <WorkoutTracker userId={userId} client:load />}
+    {userId && (
+      <WorkoutTracker
+        userId={userId}
+        initialProgram={initialProgram}
+        initialPlan={initialPlan}
+        client:load
+      />
+    )}
   </div>
 </MainLayout>

@@ -16,6 +16,8 @@ import type { MuscleGroup } from "@/types/workout";
 
 interface WorkoutTrackerProps {
   userId: string;
+  initialProgram?: ActiveProgram | null;
+  initialPlan?: ProgramDaySchedule | null;
 }
 
 interface SetLog {
@@ -64,7 +66,7 @@ interface ActiveProgram {
   durationWeeks: number;
 }
 
-export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
+export function WorkoutTracker({ userId, initialProgram, initialPlan }: WorkoutTrackerProps) {
   const [session, setSession]             = useState<{ id: string; name: string } | null>(null);
   const [exercises, setExercises]         = useState<ExerciseSession[]>([]);
   const [startTime, setStartTime]         = useState<number | null>(null);
@@ -78,9 +80,9 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
   const [sessionNotes, setSessionNotes]   = useState("");
   const [prAlert, setPrAlert]             = useState<PrAlert | null>(null);
   const [sessionPrs, setSessionPrs]       = useState<PrAlert[]>([]);
-  const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
+  const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(initialProgram ?? null);
   const [weekAdvanced, setWeekAdvanced]   = useState(false);
-  const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(null);
+  const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(initialPlan ?? null);
   const [selectorFilter, setSelectorFilter] = useState<MuscleGroup | "all">("all");
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [templates, setTemplates]         = useState<{ id: string; name: string; exercises: any[] }[]>([]);
@@ -92,19 +94,21 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
   const [drawerExercise, setDrawerExercise] = useState<ExerciseSession | null>(null);
   const [loadingPlan, setLoadingPlan]     = useState(false);
 
-  // Cargar programa activo y templates
+  // Programa activo: ya disponible desde SSR; solo hace fetch si faltó (sin programa activo server-side)
   useEffect(() => {
-    fetch(`/api/programs?userId=${userId}`)
-      .then(r => r.json())
-      .then((programs: any[]) => {
-        const active = programs.find(p => p.active);
-        if (!active) return;
-        setActiveProgram(active);
-        const plan = getTodaysProgramDay(active.splitType);
-        setTodayPlan(plan);
-      })
-      .catch(console.error);
+    if (!initialProgram) {
+      fetch(`/api/programs?userId=${userId}`)
+        .then(r => r.json())
+        .then((programs: any[]) => {
+          const active = programs.find((p: any) => p.active);
+          if (!active) return;
+          setActiveProgram(active);
+          setTodayPlan(getTodaysProgramDay(active.splitType));
+        })
+        .catch(console.error);
+    }
 
+    // Templates y recovery son secundarios — siguen siendo client-side
     fetch(`/api/templates?userId=${userId}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setTemplates(data); })
