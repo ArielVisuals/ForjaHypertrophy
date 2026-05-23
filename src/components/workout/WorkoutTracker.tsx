@@ -17,7 +17,6 @@ import type { MuscleGroup } from "@/types/workout";
 interface WorkoutTrackerProps {
   userId: string;
   initialProgram?: ActiveProgram | null;
-  initialPlan?: ProgramDaySchedule | null;
 }
 
 interface SetLog {
@@ -66,7 +65,7 @@ interface ActiveProgram {
   durationWeeks: number;
 }
 
-export function WorkoutTracker({ userId, initialProgram, initialPlan }: WorkoutTrackerProps) {
+export function WorkoutTracker({ userId, initialProgram }: WorkoutTrackerProps) {
   const [session, setSession]             = useState<{ id: string; name: string } | null>(null);
   const [exercises, setExercises]         = useState<ExerciseSession[]>([]);
   const [startTime, setStartTime]         = useState<number | null>(null);
@@ -82,7 +81,9 @@ export function WorkoutTracker({ userId, initialProgram, initialPlan }: WorkoutT
   const [sessionPrs, setSessionPrs]       = useState<PrAlert[]>([]);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(initialProgram ?? null);
   const [weekAdvanced, setWeekAdvanced]   = useState(false);
-  const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(initialPlan ?? null);
+  const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(() =>
+    initialProgram ? getTodaysProgramDay(initialProgram.splitType) : null
+  );
   const [selectorFilter, setSelectorFilter] = useState<MuscleGroup | "all">("all");
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [templates, setTemplates]         = useState<{ id: string; name: string; exercises: any[] }[]>([]);

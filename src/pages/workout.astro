@@ -4,12 +4,9 @@ import { WorkoutTracker } from "@/components/workout/WorkoutTracker";
 import { db } from "@/lib/db";
 import { trainingPrograms } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getTodaysProgramDay } from "@/lib/constants/programs";
-
 const { userId } = Astro.locals.auth();
 
 let initialProgram = null;
-let initialPlan    = null;
 
 if (userId) {
   const active = await db.query.trainingPrograms.findFirst({
@@ -23,7 +20,7 @@ if (userId) {
       currentWeek:   active.currentWeek ?? 1,
       durationWeeks: active.durationWeeks ?? 12,
     };
-    initialPlan = getTodaysProgramDay(active.splitType ?? "");
+    // getTodaysProgramDay se ejecuta en el cliente (hora local del usuario, no UTC del servidor)
   }
 }
 ---
