@@ -603,95 +603,94 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     );
     const fmt = (min: number) => `${Math.floor(min / 60)}h ${min % 60}min`;
 
-    return (
+    return createPortal(
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="w-full max-w-2xl mx-auto space-y-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", overflowY: "auto" }}
       >
-        {/* Header */}
-        <div className="text-center space-y-2 pt-4">
-          <p className="text-[8px] font-black text-emerald-400 uppercase tracking-[0.4em]">MISIÓN COMPLETADA</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none">{s.name}</h2>
-          <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest">
-            {new Date(s.completedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} HOY
-          </p>
-        </div>
+        <div style={{ width: "100%", maxWidth: "680px", margin: "0 auto", padding: "3rem 1.25rem 6rem" }}>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "DURACIÓN",  value: s.durationMinutes ? fmt(s.durationMinutes) : "—", color: "#fff" },
-            { label: "SETS",      value: String(totalSets), color: "#34d399" },
-            { label: "RPE",       value: s.overallRpe ? `${s.overallRpe}/10` : "—", color: "#60a5fa" },
-          ].map(stat => (
-            <div key={stat.label} className="rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] p-5 text-center">
-              <p className="text-[7px] font-black text-white/25 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
-              <p className="text-xl font-black" style={{ color: stat.color }}>{stat.value}</p>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <p style={{ fontSize: "9px", fontWeight: 900, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.35em", marginBottom: "0.75rem" }}>MISIÓN COMPLETADA</p>
+            <h2 style={{ fontSize: "clamp(1.75rem,5vw,2.5rem)", fontWeight: 900, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "0.5rem" }}>{s.name}</h2>
+            <p style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.2em" }}>
+              {new Date(s.completedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} · HOY
+            </p>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.75rem", marginBottom: "1rem" }}>
+            {[
+              { label: "DURACIÓN", value: s.durationMinutes ? fmt(s.durationMinutes) : "—", color: "#fff" },
+              { label: "SETS",     value: String(totalSets), color: "#34d399" },
+              { label: "RPE",      value: s.overallRpe ? `${s.overallRpe}/10` : "—", color: "#60a5fa" },
+            ].map(stat => (
+              <div key={stat.label} style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "1.25rem", padding: "1.25rem", textAlign: "center" }}>
+                <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "0.5rem" }}>{stat.label}</p>
+                <p style={{ fontSize: "clamp(1rem,3vw,1.5rem)", fontWeight: 900, color: stat.color }}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Volumen total */}
+          {totalVol > 0 && (
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "1rem", padding: "0.875rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <span style={{ fontSize: "8px", fontWeight: 900, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.2em" }}>VOLUMEN TOTAL</span>
+              <span style={{ fontSize: "1.125rem", fontWeight: 900, color: "rgba(255,255,255,0.6)" }}>{Math.round(totalVol).toLocaleString("es-ES")} KG</span>
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Volumen total */}
-        {totalVol > 0 && (
-          <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.05] px-6 py-4 flex items-center justify-between">
-            <span className="text-[8px] font-black text-white/25 uppercase tracking-widest">VOLUMEN TOTAL</span>
-            <span className="text-lg font-black text-white/60">{Math.round(totalVol).toLocaleString("es-ES")} KG</span>
-          </div>
-        )}
-
-        {/* Ejercicios */}
-        <div className="rounded-[1.75rem] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
-          <div className="px-6 pt-5 pb-3">
-            <p className="text-[8px] font-black text-white/25 uppercase tracking-[0.25em]">EJERCICIOS</p>
-          </div>
-          {s.exercises.map((ex, i) => {
-            const bestSet = ex.sets.length > 0
-              ? ex.sets.reduce((b, set) => set.weightKg > b.weightKg ? set : b, ex.sets[0])
-              : null;
-            return (
-              <div key={i} className="px-6 py-4 border-t border-white/[0.04]">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="text-[11px] font-black text-white uppercase tracking-tight">{ex.name}</p>
-                    <p className="text-[8px] font-bold text-white/25 uppercase tracking-widest mt-0.5">
-                      {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup}
-                    </p>
+          {/* Ejercicios */}
+          <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "1.25rem", overflow: "hidden", marginBottom: "1.5rem" }}>
+            <div style={{ padding: "1.25rem 1.25rem 0.75rem" }}>
+              <p style={{ fontSize: "9px", fontWeight: 900, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.25em" }}>EJERCICIOS</p>
+            </div>
+            {s.exercises.map((ex, i) => {
+              const bestSet = ex.sets.length > 0
+                ? ex.sets.reduce((b, set) => set.weightKg > b.weightKg ? set : b, ex.sets[0])
+                : null;
+              return (
+                <div key={i} style={{ padding: "0.875rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                    <div>
+                      <p style={{ fontSize: "11px", fontWeight: 900, color: "#fff", textTransform: "uppercase" }}>{ex.name}</p>
+                      <p style={{ fontSize: "8px", fontWeight: 700, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", marginTop: "2px" }}>
+                        {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: "9px", fontWeight: 900, color: "rgba(255,255,255,0.4)" }}>{ex.sets.length} SETS</span>
                   </div>
-                  <span className="text-[9px] font-black text-white/40">{ex.sets.length} SETS</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {ex.sets.map((set, si) => (
-                    <span
-                      key={si}
-                      className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md"
-                      style={{
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+                    {ex.sets.map((set, si) => (
+                      <span key={si} style={{
+                        fontSize: "9px", fontWeight: 700, textTransform: "uppercase",
+                        padding: "2px 7px", borderRadius: "6px",
                         color:      set === bestSet ? "#34d399" : "rgba(255,255,255,0.35)",
                         background: set === bestSet ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
                         border:     `1px solid ${set === bestSet ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)"}`,
-                      }}
-                    >
-                      {set.weightKg > 0 ? `${set.weightKg}kg` : "BW"} × {set.reps}
-                      {set.rpe != null ? ` · RIR ${10 - set.rpe}` : ""}
-                    </span>
-                  ))}
+                      }}>
+                        {set.weightKg > 0 ? `${set.weightKg}kg` : "BW"} × {set.reps}
+                        {set.rpe != null ? ` · RIR ${10 - set.rpe}` : ""}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* Volver al dashboard */}
-        <div className="flex justify-center pb-8">
-          <a
-            href="/dashboard"
-            className="px-8 py-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] font-black text-white/50 uppercase tracking-widest hover:text-white hover:bg-white/8 transition-all"
-          >
-            ← VOLVER AL CENTRO DE MANDO
-          </a>
+          {/* CTA */}
+          <div style={{ textAlign: "center" }}>
+            <a href="/dashboard" style={{ display: "inline-block", padding: "0.875rem 2rem", borderRadius: "1rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", fontSize: "10px", fontWeight: 900, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.2em", textDecoration: "none" }}>
+              ← VOLVER AL CENTRO DE MANDO
+            </a>
+          </div>
+
         </div>
-      </motion.div>
+      </motion.div>,
+      document.body
     );
   }
 
