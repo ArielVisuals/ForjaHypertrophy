@@ -11,6 +11,20 @@ function calcEpleyOneRM(weightKg: number, reps: number): number {
   return Math.round(weightKg * (1 + reps / 30));
 }
 
+function calcProgression(lastWeight: number, lastRpe: number | null): {
+  weight: number;
+  dir: "up" | "hold" | "down";
+} {
+  // rpe = 10 - rir; rpe ≤ 8 = RIR ≥ 2 → progress; rpe 9 = RIR 1 → hold; rpe 10 = RIR 0 → reduce
+  if (lastRpe === null || lastRpe <= 8) {
+    return { weight: Math.round((lastWeight + 2.5) * 4) / 4, dir: "up" };
+  }
+  if (lastRpe === 9) {
+    return { weight: lastWeight, dir: "hold" };
+  }
+  return { weight: Math.max(0, Math.round((lastWeight - 2.5) * 4) / 4), dir: "down" };
+}
+
 /**
  * Obtener el historial de un ejercicio: última actuación + máximo histórico + 1RM estimado
  */
@@ -68,8 +82,12 @@ export async function getExercisePreviousPerformance(userId: string, exerciseId:
         lastRpe:       last ? last.rpe : null,
         lastDate:      last ? last.date : null,
         maxWeight,
-        estimatedOneRM: lastWeight && lastReps ? calcEpleyOneRM(lastWeight, lastReps) : null,
-        suggestedWeight: lastWeight ? Math.round((lastWeight + 2.5) * 4) / 4 : null,
+        estimatedOneRM:  lastWeight && lastReps ? calcEpleyOneRM(lastWeight, lastReps) : null,
+        ...(() => {
+          if (!lastWeight) return { suggestedWeight: null, progressionDir: null };
+          const p = calcProgression(lastWeight, last?.rpe ?? null);
+          return { suggestedWeight: p.weight, progressionDir: p.dir };
+        })(),
       },
       error: null,
     };

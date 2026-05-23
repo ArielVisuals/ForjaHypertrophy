@@ -44,6 +44,7 @@ interface ExerciseSession {
   historicalMax?: number;
   estimatedOneRM?: number;
   suggestedWeight?: number;
+  progressionDir?: "up" | "hold" | "down";
   notes?: string;
   prescribedRepRange?: string;
   prescribedRirTarget?: number;
@@ -170,6 +171,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
           historicalMax:       hist?.maxWeight,
           estimatedOneRM:      hist?.estimatedOneRM,
           suggestedWeight:     hist?.suggestedWeight,
+          progressionDir:      hist?.progressionDir,
         };
       });
       setExercises(exerciseList);
@@ -275,6 +277,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
           historicalMax:       hist?.maxWeight,
           estimatedOneRM:      hist?.estimatedOneRM,
           suggestedWeight:     hist?.suggestedWeight,
+          progressionDir:      hist?.progressionDir,
           prescribedRepRange:  planEx.repRange,
           prescribedRirTarget: planEx.rirTarget,
         };
@@ -331,6 +334,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
     let historicalMax: number | undefined;
     let estimatedOneRM: number | undefined;
     let suggestedWeight: number | undefined;
+    let progressionDir: ExerciseSession["progressionDir"];
     let lastSessionSets: GhostSet[] | undefined;
 
     setLoadingHistory(true);
@@ -347,6 +351,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
         historicalMax       = hist.maxWeight;
         estimatedOneRM      = hist.estimatedOneRM;
         suggestedWeight     = hist.suggestedWeight;
+        progressionDir      = hist.progressionDir;
       }
       if (Array.isArray(last) && last.length > 0) {
         lastSessionSets = last;
@@ -376,6 +381,7 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
         historicalMax,
         estimatedOneRM,
         suggestedWeight,
+        progressionDir,
       },
     ]);
   };
@@ -1266,8 +1272,13 @@ export function WorkoutTracker({ userId }: WorkoutTrackerProps) {
                         </div>
                       )}
                       {ex.suggestedWeight && (
-                        <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest whitespace-nowrap">
-                          OBJ: {ex.suggestedWeight} KG
+                        <div className={`text-[8px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                          ex.progressionDir === "up"   ? "text-emerald-400" :
+                          ex.progressionDir === "down" ? "text-orange-400"  : "text-blue-400"
+                        }`}>
+                          {ex.progressionDir === "up"   ? `↑ ${ex.suggestedWeight} KG` :
+                           ex.progressionDir === "down" ? `↓ ${ex.suggestedWeight} KG` :
+                           `= ${ex.suggestedWeight} KG`}
                         </div>
                       )}
                     </>

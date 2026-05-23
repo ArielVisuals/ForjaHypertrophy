@@ -80,6 +80,8 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
     carbs: "",
     fats: "",
   });
+  const [saveFormAsStaple, setSaveFormAsStaple] = useState(false);
+  const [loggingStapleId, setLoggingStapleId] = useState<string | null>(null);
 
   useEffect(() => {
     loadNutritionData();
@@ -133,26 +135,66 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
 
   const addMeal = async () => {
     if (!formData.name || !formData.kcal) return alert("Nombre y Calorías requeridos");
+    const payload = {
+      userId,
+      mealName:  formData.name,
+      calories:  parseFloat(formData.kcal),
+      proteinG:  parseFloat(formData.prot)  || 0,
+      carbsG:    parseFloat(formData.carbs) || 0,
+      fatsG:     parseFloat(formData.fats)  || 0,
+    };
+    try {
+      const response = await fetch("/api/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        if (saveFormAsStaple) {
+          await fetch("/api/nutrition", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action:   "add-staple",
+              userId,
+              name:     formData.name,
+              calories: payload.calories,
+              proteinG: payload.proteinG,
+              carbsG:   payload.carbsG,
+              fatsG:    payload.fatsG,
+            }),
+          });
+        }
+        setFormData({ name: "", kcal: "", prot: "", carbs: "", fats: "" });
+        setSaveFormAsStaple(false);
+        setShowAddForm(false);
+        loadNutritionData();
+      }
+    } catch (e) {
+      alert("Error al registrar combustible");
+    }
+  };
+
+  const logStaple = async (s: NutritionStaple) => {
+    setLoggingStapleId(s.id);
     try {
       const response = await fetch("/api/nutrition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          mealName:  formData.name,
-          calories:  parseFloat(formData.kcal),
-          proteinG:  parseFloat(formData.prot)  || 0,
-          carbsG:    parseFloat(formData.carbs) || 0,
-          fatsG:     parseFloat(formData.fats)  || 0,
+          mealName:  s.name,
+          calories:  s.calories,
+          proteinG:  s.proteinG,
+          carbsG:    s.carbsG,
+          fatsG:     s.fatsG,
         }),
       });
-      if (response.ok) {
-        setFormData({ name: "", kcal: "", prot: "", carbs: "", fats: "" });
-        setShowAddForm(false);
-        loadNutritionData();
-      }
+      if (response.ok) loadNutritionData();
     } catch (e) {
-      alert("Error al registrar combustible");
+      console.error("Error logging staple:", e);
+    } finally {
+      setLoggingStapleId(null);
     }
   };
 
@@ -574,6 +616,17 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
                     ))}
                   </div>
                   <button
+                    onClick={() => setSaveFormAsStaple(v => !v)}
+                    className={`w-full py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                      saveFormAsStaple
+                        ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
+                        : "bg-white/[0.02] border-white/8 text-white/25 hover:border-white/15 hover:text-white/50"
+                    }`}
+                  >
+                    <span>{saveFormAsStaple ? "★" : "☆"}</span>
+                    <span>{saveFormAsStaple ? "Guardar como Staple" : "Guardar como Staple"}</span>
+                  </button>
+                  <button
                     onClick={addMeal}
                     className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all"
                   >
@@ -600,25 +653,36 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
               {staples.map((s) => (
                 <div
                   key={s.id}
-                  className="relative p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-blue-500/20 transition-all group"
+                  className="relative rounded-2xl bg-white/[0.02] border border-white/5 hover:border-blue-500/20 transition-all group overflow-hidden"
                 >
+                  {/* One-tap log button (main area) */}
                   <button
-                    onClick={() => loadStaple(s)}
-                    className="w-full text-left"
+                    onClick={() => logStaple(s)}
+                    disabled={loggingStapleId === s.id}
+                    className="w-full text-left p-4 pb-2 disabled:opacity-50"
                   >
                     <div className="text-[9px] font-black text-white tracking-widest uppercase group-hover:text-blue-400 transition-colors truncate pr-4">
-                      {s.name}
+                      {loggingStapleId === s.id ? "..." : s.name}
                     </div>
-                    <div className="text-[8px] font-bold text-white/20 mt-1">
-                      {s.calories} KCAL | {s.proteinG}G P
+                    <div className="text-[8px] font-bold text-white/20 mt-0.5">
+                      {s.calories} KCAL · {s.proteinG}G P
                     </div>
                   </button>
-                  <button
-                    onClick={() => deleteStaple(s.id)}
-                    className="absolute top-2 right-2 w-5 h-5 rounded-md flex items-center justify-center text-white/10 hover:text-red-400 hover:bg-red-400/10 transition-all text-[9px] opacity-0 group-hover:opacity-100"
-                  >
-                    ✕
-                  </button>
+                  {/* Bottom action bar */}
+                  <div className="flex items-center justify-between px-3 pb-2.5 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => loadStaple(s)}
+                      className="text-[7px] font-black text-white/20 uppercase tracking-widest hover:text-white/50 transition-colors"
+                    >
+                      editar
+                    </button>
+                    <button
+                      onClick={() => deleteStaple(s.id)}
+                      className="text-[7px] font-black text-red-400/30 uppercase tracking-widest hover:text-red-400 transition-colors"
+                    >
+                      eliminar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
