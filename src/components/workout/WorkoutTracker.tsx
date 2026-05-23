@@ -579,12 +579,17 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   };
 
   // ─── YA ENTRENASTE HOY ────────────────────────────────────────────────────
-  // Compare session.date (stored from browser at creation time) vs today's local date.
-  // This is timezone-safe: the browser set the date, the browser checks the date.
-  const todayLocalDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" local
-  const alreadyTrainedToday = !!todaySession && todaySession.date === todayLocalDate;
+  // Start false (SSR-safe). useEffect fires only in the browser so the local
+  // clock is always correct — no hydration mismatch / flip.
+  const [alreadyTrainedToday, setAlreadyTrainedToday] = useState(false);
+  useEffect(() => {
+    if (!todaySession?.date) return;
+    const now = new Date();
+    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    setAlreadyTrainedToday(todaySession.date === localToday);
+  }, [todaySession]);
 
-  if (alreadyTrainedToday && !session) {
+  if (alreadyTrainedToday && !session && todaySession) {
     const s = todaySession;
     const totalSets = s.exercises.reduce((a, e) => a + e.sets.length, 0);
     const totalVol  = s.exercises.reduce(

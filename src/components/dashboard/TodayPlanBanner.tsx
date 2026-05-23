@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getTodaysProgramDay, MUSCLE_GROUP_LABELS, type ProgramDaySchedule } from "@/lib/constants/programs";
 
 interface ActiveProgram {
@@ -10,7 +10,14 @@ interface ActiveProgram {
 
 interface TodayPlanBannerProps {
   activeProgram: ActiveProgram;
-  lastSessionDate?: string | null; // "YYYY-MM-DD" from DB; browser compares to its local date
+  lastSessionDate?: string | null; // "YYYY-MM-DD" stored by the browser at session creation
+}
+
+function isSameDayLocal(dateStr: string): boolean {
+  // dateStr is "YYYY-MM-DD" — compare to today in local timezone
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return dateStr === localToday;
 }
 
 export function TodayPlanBanner({ activeProgram, lastSessionDate }: TodayPlanBannerProps) {
@@ -18,8 +25,12 @@ export function TodayPlanBanner({ activeProgram, lastSessionDate }: TodayPlanBan
     getTodaysProgramDay(activeProgram.splitType)
   );
 
-  const todayLocalDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" local
-  const alreadyTrained = !!lastSessionDate && lastSessionDate === todayLocalDate;
+  // Start false (safe for SSR). useEffect runs only in the browser with the
+  // user's actual local clock — no hydration mismatch.
+  const [alreadyTrained, setAlreadyTrained] = useState(false);
+  useEffect(() => {
+    if (lastSessionDate) setAlreadyTrained(isSameDayLocal(lastSessionDate));
+  }, [lastSessionDate]);
 
   const todayDayName = new Date()
     .toLocaleDateString("es-ES", { weekday: "long" })
