@@ -73,6 +73,12 @@
 }
 
 @layer base {
+  /* astro-island is inline by default — all React islands in this app are block-level */
+  astro-island {
+    display: block;
+    width: 100%;
+  }
+
   html {
     background-color: #000000 !important;
     background: #000000 !important;
