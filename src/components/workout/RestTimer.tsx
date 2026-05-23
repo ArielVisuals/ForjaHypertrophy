@@ -49,21 +49,19 @@ export function RestTimer({ duration, onComplete, onSkip }: RestTimerProps) {
   const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   const overlay = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <motion.div
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.18 }}
-      />
-
-      {/* Card */}
+    <motion.div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18 }}
+    >
+      {/* Card — absolute centering so width never depends on a flex parent */}
       <motion.div
         initial={{ opacity: 0, scale: 0.88, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 340, damping: 28, delay: 0.05 }}
-        className="relative z-10 w-full max-w-sm"
+        style={{ width: "min(384px, calc(100vw - 2rem))" }}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
       >
         <div className="w-full p-8 rounded-[2.5rem] bg-[#0D0D0F] border border-white/10 shadow-2xl shadow-black/80 flex flex-col items-center gap-6">
 
@@ -134,7 +132,7 @@ export function RestTimer({ duration, onComplete, onSkip }: RestTimerProps) {
 
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 
   return createPortal(overlay, document.body);
