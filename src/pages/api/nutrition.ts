@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { nutritionLogs, nutritionTargets, nutritionStaples } from "@/lib/db/schema";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, lt, desc } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ url }) => {
   const userId = url.searchParams.get("userId");
@@ -40,13 +40,30 @@ export const GET: APIRoute = async ({ url }) => {
     return new Response(JSON.stringify(result), { status: 200 });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use client-supplied local date + tz offset so "today" means the user's calendar day,
+  // not UTC midnight (which would bleed yesterday's late-night logs into today).
+  const dateParam = url.searchParams.get("date");     // "YYYY-MM-DD" in client's local tz
+  const tzOffset  = parseInt(url.searchParams.get("tzOffset") ?? "0"); // minutes behind UTC
+
+  let todayStart: Date;
+  let todayEnd: Date;
+  if (dateParam) {
+    const [y, m, d] = dateParam.split("-").map(Number);
+    todayStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) + tzOffset * 60 * 1000);
+    todayEnd   = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  } else {
+    todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+  }
 
   const [logs, targetsRows, staples] = await Promise.all([
     db.select()
       .from(nutritionLogs)
-      .where(and(eq(nutritionLogs.userId, userId), gte(nutritionLogs.loggedAt, today)))
+      .where(and(
+        eq(nutritionLogs.userId, userId),
+        gte(nutritionLogs.loggedAt, todayStart),
+        lt(nutritionLogs.loggedAt, todayEnd),
+      ))
       .orderBy(desc(nutritionLogs.loggedAt)),
 
     db.select()

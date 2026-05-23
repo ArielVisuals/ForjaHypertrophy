@@ -90,7 +90,9 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
   const loadNutritionData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/nutrition?userId=${userId}`);
+      const localDate = new Date().toLocaleDateString("sv"); // "YYYY-MM-DD" locale-independent
+      const tzOffset  = new Date().getTimezoneOffset();      // minutes behind UTC
+      const response = await fetch(`/api/nutrition?userId=${userId}&date=${localDate}&tzOffset=${tzOffset}`);
       const data = await response.json();
 
       setLogs(data.logs ?? []);
@@ -350,9 +352,241 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
     );
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
 
-      {/* Macro Telemetry Dashboard */}
+      {/* ── 1. AÑADIR COMBUSTIBLE — lo más importante, va primero ── */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">AÑADIR COMBUSTIBLE</h2>
+        </div>
+
+        {!showAddForm ? (
+          <button
+            onClick={() => { setShowAddForm(true); setAddMode("search"); }}
+            className="w-full py-5 rounded-[2rem] bg-blue-600/10 border border-blue-500/30 text-blue-400 font-black uppercase tracking-widest text-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-lg shadow-blue-600/10"
+          >
+            + Añadir Combustible
+          </button>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-6 rounded-[2.5rem] bg-[#0A0A0B] border border-white/15 space-y-5"
+          >
+            {/* Mode tabs */}
+            <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
+              <button
+                onClick={() => setAddMode("search")}
+                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "search" ? "bg-blue-600 text-white" : "text-white/30 hover:text-white"}`}
+              >
+                Buscar
+              </button>
+              <button
+                onClick={() => setAddMode("manual")}
+                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "manual" ? "bg-blue-600 text-white" : "text-white/30 hover:text-white"}`}
+              >
+                Manual
+              </button>
+            </div>
+
+            {addMode === "search" ? (
+              <div className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Buscar alimento..."
+                    autoFocus
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold text-sm outline-none focus:border-blue-500/50 transition-all placeholder-white/20"
+                    value={searchQuery}
+                    onChange={e => handleSearchChange(e.target.value)}
+                  />
+                  {searching && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                {searchResults.length > 0 && !selectedFood && (
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                    {searchResults.map(food => (
+                      <button
+                        key={food.id}
+                        onClick={() => selectFood(food)}
+                        className="w-full text-left px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-blue-500/30 hover:bg-blue-500/5 transition-all"
+                      >
+                        <p className="text-[11px] font-black text-white uppercase tracking-tight leading-tight truncate">{food.name}</p>
+                        <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
+                          {food.brand && `${food.brand} · `}{food.per100.kcal} KCAL | {food.per100.prot}G P por 100G
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedFood && portionMacros && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-blue-600/10 border border-blue-500/20">
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-tight leading-tight">{selectedFood.name}</p>
+                      {selectedFood.brand && (
+                        <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest mt-0.5">{selectedFood.brand}</p>
+                      )}
+                      <button
+                        onClick={() => { setSelectedFood(null); setSearchQuery(""); }}
+                        className="text-[8px] font-black text-blue-400/60 uppercase tracking-widest mt-1 hover:text-blue-400 transition-colors"
+                      >
+                        Cambiar
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[8px] font-black text-white/30 uppercase tracking-widest ml-1">Porción (Gramos)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        inputMode="numeric"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white font-black text-xl text-center outline-none focus:border-blue-500/50 transition-all"
+                        value={portionGrams}
+                        onChange={e => setPortionGrams(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "KCAL",  value: portionMacros.kcal },
+                        { label: "P",     value: `${portionMacros.prot}G` },
+                        { label: "C",     value: `${portionMacros.carbs}G` },
+                        { label: "F",     value: `${portionMacros.fats}G` },
+                      ].map(m => (
+                        <div key={m.label} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center">
+                          <p className="text-[7px] font-black text-white/20 uppercase tracking-widest">{m.label}</p>
+                          <p className="text-[11px] font-black text-white mt-0.5">{m.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={logFromSearch}
+                      className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all"
+                    >
+                      Registrar {Number(portionGrams)}G
+                    </button>
+
+                    <button
+                      onClick={saveAsStaple}
+                      className="w-full py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-white/30 font-black uppercase tracking-widest text-[9px] hover:border-orange-500/30 hover:text-orange-400 transition-all"
+                    >
+                      ★ Guardar como Staple
+                    </button>
+                  </div>
+                )}
+
+                {!searching && searchQuery.length >= 2 && searchResults.length === 0 && !selectedFood && (
+                  <p className="text-center text-[9px] font-black text-white/20 uppercase tracking-widest py-4">
+                    Sin resultados — prueba manual
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="NOMBRE DE COMIDA"
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-4 text-white font-black text-xs tracking-widest outline-none focus:border-blue-500/50 transition-all"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "kcal",  label: "KCAL" },
+                    { key: "prot",  label: "PROT (G)" },
+                    { key: "carbs", label: "CARBOS (G)" },
+                    { key: "fats",  label: "GRASAS (G)" },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="space-y-1.5">
+                      <label className="text-[8px] font-black text-white/20 tracking-widest ml-1 uppercase">{label}</label>
+                      <input
+                        type="number"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-3 text-white font-black text-lg outline-none focus:border-blue-500/50 transition-all"
+                        value={(formData as any)[key]}
+                        onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setSaveFormAsStaple(v => !v)}
+                  className={`w-full py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    saveFormAsStaple
+                      ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
+                      : "bg-white/[0.02] border-white/8 text-white/25 hover:border-white/15 hover:text-white/50"
+                  }`}
+                >
+                  <span>{saveFormAsStaple ? "★" : "☆"}</span>
+                  <span>Guardar como Staple</span>
+                </button>
+                <button
+                  onClick={addMeal}
+                  className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all"
+                >
+                  Sincronizar Log
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => { setShowAddForm(false); setSelectedFood(null); setSearchQuery(""); setSearchResults([]); }}
+              className="w-full py-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-white/20 font-black text-[9px] uppercase tracking-widest hover:text-white/50 transition-all"
+            >
+              Cancelar
+            </button>
+          </motion.div>
+        )}
+
+        {/* Iron Staples — debajo del formulario */}
+        <div className="space-y-4">
+          <p className="text-[9px] font-black text-white/20 tracking-widest uppercase ml-1">
+            IRON STAPLES ({staples.length})
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {staples.map((s) => (
+              <div
+                key={s.id}
+                className="relative rounded-2xl bg-white/[0.02] border border-white/5 hover:border-blue-500/20 transition-all group overflow-hidden"
+              >
+                <button
+                  onClick={() => logStaple(s)}
+                  disabled={loggingStapleId === s.id}
+                  className="w-full text-left p-4 pb-2 disabled:opacity-50"
+                >
+                  <div className="text-[9px] font-black text-white tracking-widest uppercase group-hover:text-blue-400 transition-colors truncate pr-4">
+                    {loggingStapleId === s.id ? "..." : s.name}
+                  </div>
+                  <div className="text-[8px] font-bold text-white/20 mt-0.5">
+                    {s.calories} KCAL · {s.proteinG}G P
+                  </div>
+                </button>
+                <div className="flex items-center justify-between px-3 pb-2.5 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => loadStaple(s)}
+                    className="text-[7px] font-black text-white/20 uppercase tracking-widest hover:text-white/50 transition-colors"
+                  >
+                    editar
+                  </button>
+                  <button
+                    onClick={() => deleteStaple(s.id)}
+                    className="text-[7px] font-black text-red-400/30 uppercase tracking-widest hover:text-red-400 transition-colors"
+                  >
+                    eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. MACRO TELEMETRY DASHBOARD ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
         {/* Calorías */}
@@ -449,321 +683,78 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+      {/* ── 3. WEEKLY CHART + LOG DEL DÍA ── */}
+      <div className="space-y-8">
+        <div className="p-6 sm:p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10">
+          <NutritionWeeklyChart
+            userId={userId}
+            targetKcal={targets.calories}
+            targetProt={targets.proteinG}
+          />
+        </div>
 
-        {/* Columna izquierda: Registro rápido + Staples */}
-        <div className="lg:col-span-1 space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">REGISTRO RÁPIDO</h2>
-          </div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">LOG DE HOY</h2>
+          <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+            {logs.length} ENTRADAS
+          </span>
+        </div>
 
-          {!showAddForm ? (
-            <button
-              onClick={() => { setShowAddForm(true); setAddMode("search"); }}
-              className="w-full py-6 rounded-[2rem] bg-white/5 border border-dashed border-white/20 text-white/40 font-black uppercase tracking-widest text-xs hover:border-blue-500/50 hover:text-white transition-all"
-            >
-              + Añadir Combustible
-            </button>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="p-6 rounded-[2.5rem] bg-[#0A0A0B] border border-white/15 space-y-5"
-            >
-              {/* Mode tabs */}
-              <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-                <button
-                  onClick={() => setAddMode("search")}
-                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "search" ? "bg-blue-600 text-white" : "text-white/30 hover:text-white"}`}
-                >
-                  Buscar
-                </button>
-                <button
-                  onClick={() => setAddMode("manual")}
-                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "manual" ? "bg-blue-600 text-white" : "text-white/30 hover:text-white"}`}
-                >
-                  Manual
-                </button>
+        <div className="space-y-4">
+          <AnimatePresence>
+            {logs.length === 0 ? (
+              <div className="py-16 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
+                <p className="text-white/10 font-black uppercase tracking-widest text-[10px]">
+                  No hay combustible registrado hoy
+                </p>
               </div>
-
-              {addMode === "search" ? (
-                <div className="space-y-4">
-                  {/* Search input */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Buscar alimento..."
-                      autoFocus
-                      className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold text-sm outline-none focus:border-blue-500/50 transition-all placeholder-white/20"
-                      value={searchQuery}
-                      onChange={e => handleSearchChange(e.target.value)}
-                    />
-                    {searching && (
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Results */}
-                  {searchResults.length > 0 && !selectedFood && (
-                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
-                      {searchResults.map(food => (
-                        <button
-                          key={food.id}
-                          onClick={() => selectFood(food)}
-                          className="w-full text-left px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-blue-500/30 hover:bg-blue-500/5 transition-all"
-                        >
-                          <p className="text-[11px] font-black text-white uppercase tracking-tight leading-tight truncate">{food.name}</p>
-                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
-                            {food.brand && `${food.brand} · `}{food.per100.kcal} KCAL | {food.per100.prot}G P por 100G
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Selected food + portion */}
-                  {selectedFood && portionMacros && (
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-2xl bg-blue-600/10 border border-blue-500/20">
-                        <p className="text-[10px] font-black text-blue-300 uppercase tracking-tight leading-tight">{selectedFood.name}</p>
-                        {selectedFood.brand && (
-                          <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest mt-0.5">{selectedFood.brand}</p>
-                        )}
-                        <button
-                          onClick={() => { setSelectedFood(null); setSearchQuery(""); }}
-                          className="text-[8px] font-black text-blue-400/60 uppercase tracking-widest mt-1 hover:text-blue-400 transition-colors"
-                        >
-                          Cambiar
-                        </button>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[8px] font-black text-white/30 uppercase tracking-widest ml-1">Porción (Gramos)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          inputMode="numeric"
-                          className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white font-black text-xl text-center outline-none focus:border-blue-500/50 transition-all"
-                          value={portionGrams}
-                          onChange={e => setPortionGrams(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-2">
-                        {[
-                          { label: "KCAL",  value: portionMacros.kcal },
-                          { label: "P",     value: `${portionMacros.prot}G` },
-                          { label: "C",     value: `${portionMacros.carbs}G` },
-                          { label: "F",     value: `${portionMacros.fats}G` },
-                        ].map(m => (
-                          <div key={m.label} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center">
-                            <p className="text-[7px] font-black text-white/20 uppercase tracking-widest">{m.label}</p>
-                            <p className="text-[11px] font-black text-white mt-0.5">{m.value}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={logFromSearch}
-                        className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all"
-                      >
-                        Registrar {Number(portionGrams)}G
-                      </button>
-
-                      <button
-                        onClick={saveAsStaple}
-                        className="w-full py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-white/30 font-black uppercase tracking-widest text-[9px] hover:border-orange-500/30 hover:text-orange-400 transition-all"
-                      >
-                        ★ Guardar como Staple
-                      </button>
-                    </div>
-                  )}
-
-                  {!searching && searchQuery.length >= 2 && searchResults.length === 0 && !selectedFood && (
-                    <p className="text-center text-[9px] font-black text-white/20 uppercase tracking-widest py-4">
-                      Sin resultados — prueba manual
-                    </p>
-                  )}
-                </div>
-              ) : (
-                /* Manual form */
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="NOMBRE DE COMIDA"
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-4 text-white font-black text-xs tracking-widest outline-none focus:border-blue-500/50 transition-all"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { key: "kcal",  label: "KCAL" },
-                      { key: "prot",  label: "PROT (G)" },
-                      { key: "carbs", label: "CARBOS (G)" },
-                      { key: "fats",  label: "GRASAS (G)" },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="space-y-1.5">
-                        <label className="text-[8px] font-black text-white/20 tracking-widest ml-1 uppercase">{label}</label>
-                        <input
-                          type="number"
-                          className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-3 text-white font-black text-lg outline-none focus:border-blue-500/50 transition-all"
-                          value={(formData as any)[key]}
-                          onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => setSaveFormAsStaple(v => !v)}
-                    className={`w-full py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                      saveFormAsStaple
-                        ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
-                        : "bg-white/[0.02] border-white/8 text-white/25 hover:border-white/15 hover:text-white/50"
-                    }`}
-                  >
-                    <span>{saveFormAsStaple ? "★" : "☆"}</span>
-                    <span>{saveFormAsStaple ? "Guardar como Staple" : "Guardar como Staple"}</span>
-                  </button>
-                  <button
-                    onClick={addMeal}
-                    className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all"
-                  >
-                    Sincronizar Log
-                  </button>
-                </div>
-              )}
-
-              <button
-                onClick={() => { setShowAddForm(false); setSelectedFood(null); setSearchQuery(""); setSearchResults([]); }}
-                className="w-full py-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-white/20 font-black text-[9px] uppercase tracking-widest hover:text-white/50 transition-all"
-              >
-                Cancelar
-              </button>
-            </motion.div>
-          )}
-
-          {/* Staples */}
-          <div className="space-y-4">
-            <p className="text-[9px] font-black text-white/20 tracking-widest uppercase ml-4">
-              IRON STAPLES ({staples.length})
-            </p>
-            <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
-              {staples.map((s) => (
-                <div
-                  key={s.id}
-                  className="relative rounded-2xl bg-white/[0.02] border border-white/5 hover:border-blue-500/20 transition-all group overflow-hidden"
+            ) : (
+              logs.map((log, idx) => (
+                <motion.div
+                  key={log.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20, height: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  className="p-5 sm:p-6 rounded-[2rem] bg-[#0A0A0B] border border-white/10 flex justify-between items-center group hover:border-white/20 transition-all"
                 >
-                  {/* One-tap log button (main area) */}
-                  <button
-                    onClick={() => logStaple(s)}
-                    disabled={loggingStapleId === s.id}
-                    className="w-full text-left p-4 pb-2 disabled:opacity-50"
-                  >
-                    <div className="text-[9px] font-black text-white tracking-widest uppercase group-hover:text-blue-400 transition-colors truncate pr-4">
-                      {loggingStapleId === s.id ? "..." : s.name}
+                  <div className="flex gap-4 sm:gap-6 items-center min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 flex items-center justify-center font-black text-white/20 text-[10px] shrink-0">
+                      {(idx + 1).toString().padStart(2, "0")}
                     </div>
-                    <div className="text-[8px] font-bold text-white/20 mt-0.5">
-                      {s.calories} KCAL · {s.proteinG}G P
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-black text-white uppercase tracking-widest truncate">
+                        {log.mealName}
+                      </h4>
+                      <p className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-widest mt-1">
+                        {Math.round(Number(log.calories))} KCAL
+                        {" | "}{Math.round(Number(log.proteinG ?? 0))}G P
+                        {" | "}{Math.round(Number(log.carbsG   ?? 0))}G C
+                        {" | "}{Math.round(Number(log.fatsG    ?? 0))}G F
+                      </p>
                     </div>
-                  </button>
-                  {/* Bottom action bar */}
-                  <div className="flex items-center justify-between px-3 pb-2.5 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[9px] font-black text-white/10 uppercase tracking-widest hidden sm:block">
+                      {new Date(log.loggedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
                     <button
-                      onClick={() => loadStaple(s)}
-                      className="text-[7px] font-black text-white/20 uppercase tracking-widest hover:text-white/50 transition-colors"
+                      onClick={async () => {
+                        await fetch(`/api/nutrition?id=${log.id}`, { method: "DELETE" });
+                        setLogs(prev => prev.filter(l => l.id !== log.id));
+                      }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white/10 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100 text-sm"
                     >
-                      editar
-                    </button>
-                    <button
-                      onClick={() => deleteStaple(s.id)}
-                      className="text-[7px] font-black text-red-400/30 uppercase tracking-widest hover:text-red-400 transition-colors"
-                    >
-                      eliminar
+                      ✕
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
         </div>
-
-        {/* Columna derecha: Weekly chart + Timeline del día */}
-        <div className="lg:col-span-2 space-y-8">
-
-          {/* Weekly nutrition chart */}
-          <div className="p-6 sm:p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10">
-            <NutritionWeeklyChart
-              userId={userId}
-              targetKcal={targets.calories}
-              targetProt={targets.proteinG}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">LOG DE HOY</h2>
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
-              {logs.length} ENTRADAS
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            <AnimatePresence>
-              {logs.length === 0 ? (
-                <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
-                  <p className="text-white/10 font-black uppercase tracking-widest text-[10px]">
-                    No hay combustible registrado hoy
-                  </p>
-                </div>
-              ) : (
-                logs.map((log, idx) => (
-                  <motion.div
-                    key={log.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20, height: 0 }}
-                    transition={{ delay: idx * 0.04 }}
-                    className="p-5 sm:p-6 rounded-[2rem] bg-[#0A0A0B] border border-white/10 flex justify-between items-center group hover:border-white/20 transition-all"
-                  >
-                    <div className="flex gap-4 sm:gap-6 items-center min-w-0">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 flex items-center justify-center font-black text-white/20 text-[10px] shrink-0">
-                        {(idx + 1).toString().padStart(2, "0")}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-black text-white uppercase tracking-widest truncate">
-                          {log.mealName}
-                        </h4>
-                        <p className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-widest mt-1">
-                          {Math.round(Number(log.calories))} KCAL
-                          {" | "}{Math.round(Number(log.proteinG ?? 0))}G P
-                          {" | "}{Math.round(Number(log.carbsG   ?? 0))}G C
-                          {" | "}{Math.round(Number(log.fatsG    ?? 0))}G F
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[9px] font-black text-white/10 uppercase tracking-widest hidden sm:block">
-                        {new Date(log.loggedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      <button
-                        onClick={async () => {
-                          await fetch(`/api/nutrition?id=${log.id}`, { method: "DELETE" });
-                          setLogs(prev => prev.filter(l => l.id !== log.id));
-                        }}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white/10 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100 text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
       </div>
+
     </div>
   );
 }
