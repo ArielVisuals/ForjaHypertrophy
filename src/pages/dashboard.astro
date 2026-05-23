@@ -100,8 +100,10 @@ const [
     ])
   : [{ data: [] }, { data: null }, { data: null }];
 
-// Pass the date string to the client island; the browser compares it to its own local date.
-const lastSessionDate = todaySessionData?.date ?? null;
+// Pass the raw timestamp; the browser converts it to local date for comparison.
+const lastCompletedAt = todaySessionData?.completedAt
+  ? todaySessionData.completedAt.toISOString()
+  : null;
 ---
 
 <MainLayout title="Centro de Mando">
@@ -180,7 +182,7 @@ const lastSessionDate = todaySessionData?.date ?? null;
           currentWeek: activeProgram.currentWeek ?? 1,
           durationWeeks: activeProgram.durationWeeks ?? 12,
         }}
-        lastSessionDate={lastSessionDate}
+        lastCompletedAt={lastCompletedAt}
         client:load
       />
     )}

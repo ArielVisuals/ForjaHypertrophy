@@ -10,27 +10,27 @@ interface ActiveProgram {
 
 interface TodayPlanBannerProps {
   activeProgram: ActiveProgram;
-  lastSessionDate?: string | null; // "YYYY-MM-DD" stored by the browser at session creation
+  lastCompletedAt?: string | null; // ISO timestamp of the most recent completed session
 }
 
-function isSameDayLocal(dateStr: string): boolean {
-  // dateStr is "YYYY-MM-DD" — compare to today in local timezone
-  const now = new Date();
-  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  return dateStr === localToday;
-}
-
-export function TodayPlanBanner({ activeProgram, lastSessionDate }: TodayPlanBannerProps) {
+export function TodayPlanBanner({ activeProgram, lastCompletedAt }: TodayPlanBannerProps) {
   const [todayPlan] = useState<ProgramDaySchedule | null>(() =>
     getTodaysProgramDay(activeProgram.splitType)
   );
 
-  // Start false (safe for SSR). useEffect runs only in the browser with the
-  // user's actual local clock — no hydration mismatch.
+  // Start false (SSR-safe). useEffect runs only in the browser so
+  // Date.getDate() uses the user's local timezone — no hydration mismatch.
   const [alreadyTrained, setAlreadyTrained] = useState(false);
   useEffect(() => {
-    if (lastSessionDate) setAlreadyTrained(isSameDayLocal(lastSessionDate));
-  }, [lastSessionDate]);
+    if (!lastCompletedAt) return;
+    const completed = new Date(lastCompletedAt);
+    const now = new Date();
+    setAlreadyTrained(
+      completed.getFullYear() === now.getFullYear() &&
+      completed.getMonth()    === now.getMonth()    &&
+      completed.getDate()     === now.getDate()
+    );
+  }, [lastCompletedAt]);
 
   const todayDayName = new Date()
     .toLocaleDateString("es-ES", { weekday: "long" })

@@ -583,10 +583,16 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   // clock is always correct — no hydration mismatch / flip.
   const [alreadyTrainedToday, setAlreadyTrainedToday] = useState(false);
   useEffect(() => {
-    if (!todaySession?.date) return;
+    if (!todaySession?.completedAt) return;
+    // Use the actual timestamp, not the stored date string (which was set server-side in UTC).
+    // Date.getDate/Month/FullYear always use the browser's local timezone.
+    const completed = new Date(todaySession.completedAt);
     const now = new Date();
-    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    setAlreadyTrainedToday(todaySession.date === localToday);
+    const isToday =
+      completed.getFullYear() === now.getFullYear() &&
+      completed.getMonth()    === now.getMonth()    &&
+      completed.getDate()     === now.getDate();
+    setAlreadyTrainedToday(isToday);
   }, [todaySession]);
 
   if (alreadyTrainedToday && !session && todaySession) {
