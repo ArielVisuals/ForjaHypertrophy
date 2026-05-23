@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExerciseSelector } from "./ExerciseSelector";
@@ -13,6 +13,50 @@ import {
   type ProgramExercise,
 } from "@/lib/constants/programs";
 import type { MuscleGroup } from "@/types/workout";
+
+// Lightweight Markdown renderer for El Arquitecto output
+function parseBold(text: string): ReactNode[] {
+  return text.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} style={{ color: "rgba(255,255,255,0.9)", fontWeight: 900 }}>{part}</strong>
+      : part
+  );
+}
+
+function ArchitectMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const nodes: ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) { nodes.push(<div key={i} style={{ height: "0.5rem" }} />); continue; }
+
+    if (trimmed.startsWith("## ")) {
+      nodes.push(
+        <p key={i} style={{ fontSize: "9px", fontWeight: 900, color: "rgba(129,140,248,0.8)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: "0.5rem", marginTop: i === 0 ? 0 : "1rem" }}>
+          {trimmed.slice(3)}
+        </p>
+      );
+    } else if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
+      nodes.push(
+        <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
+          <span style={{ color: "rgba(129,140,248,0.5)", flexShrink: 0, fontSize: "11px" }}>›</span>
+          <p style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.65)", lineHeight: 1.5, margin: 0 }}>
+            {parseBold(trimmed.slice(2))}
+          </p>
+        </div>
+      );
+    } else {
+      nodes.push(
+        <p key={i} style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, marginBottom: "0.375rem" }}>
+          {parseBold(trimmed)}
+        </p>
+      );
+    }
+  }
+  return <>{nodes}</>;
+}
 
 interface TodaySessionSummary {
   id: string;
@@ -109,6 +153,8 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   const [cancelling, setCancelling]       = useState(false);
   const [drawerExercise, setDrawerExercise] = useState<ExerciseSession | null>(null);
   const [loadingPlan, setLoadingPlan]     = useState(false);
+  const [architectAnalysis, setArchitectAnalysis] = useState<string | null>(null);
+  const [analyzingSession, setAnalyzingSession]   = useState(false);
 
   // Programa activo: ya disponible desde SSR; solo hace fetch si faltó (sin programa activo server-side)
   useEffect(() => {
@@ -557,23 +603,28 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
 
   const submitRating = async () => {
     if (!session) return;
+    setAnalyzingSession(true);
     const durationMinutes = Math.max(1, Math.floor(elapsedTime / 60));
     try {
-      await fetch("/api/workouts", {
+      const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:     "complete",
-          sessionId:  session.id,
-          duration:   durationMinutes,
-          overallRpe: sessionRpe,
-          notes:      sessionNotes || undefined,
+          action:      "complete",
+          sessionId:   session.id,
+          sessionName: session.name,
+          duration:    durationMinutes,
+          overallRpe:  sessionRpe,
+          notes:       sessionNotes || undefined,
         }),
       });
+      const payload = await res.json().catch(() => ({}));
+      setArchitectAnalysis(payload.analysis ?? null);
     } catch (e) {
       console.error("Error completando sesión:", e);
     }
-    setStartTime(null); // congela elapsedTime — el timer deja de correr
+    setStartTime(null);
+    setAnalyzingSession(false);
     setShowRating(false);
     setShowSummary(true);
   };
@@ -1068,9 +1119,10 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
 
           <button
             onClick={submitRating}
-            style={{ width: "100%", display: "block", padding: "1.25rem", borderRadius: "1.25rem", background: "#2563eb", color: "#fff", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px", border: "none", cursor: "pointer", boxSizing: "border-box" }}
+            disabled={analyzingSession}
+            style={{ width: "100%", display: "block", padding: "1.25rem", borderRadius: "1.25rem", background: analyzingSession ? "rgba(37,99,235,0.5)" : "#2563eb", color: "#fff", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px", border: "none", cursor: analyzingSession ? "default" : "pointer", boxSizing: "border-box", transition: "background 0.2s" }}
           >
-            Finalizar Misión
+            {analyzingSession ? "⚙ Procesando telemetría..." : "Finalizar Misión"}
           </button>
         </div>
       </motion.div>,
@@ -1243,6 +1295,24 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
               </p>
             </div>
           )}
+
+          {/* ── EL ARQUITECTO — Análisis post-sesión ── */}
+          <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.18)", borderRadius: "1.25rem", padding: "1.5rem", marginBottom: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8", boxShadow: "0 0 8px rgba(129,140,248,0.8)", flexShrink: 0 }} />
+              <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(129,140,248,0.7)", textTransform: "uppercase", letterSpacing: "0.35em" }}>
+                EL ARQUITECTO · ANÁLISIS DE SESIÓN
+              </p>
+            </div>
+
+            {architectAnalysis ? (
+              <ArchitectMarkdown text={architectAnalysis} />
+            ) : (
+              <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.2)", fontStyle: "italic", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+                Sala de control temporalmente fuera de línea.
+              </p>
+            )}
+          </div>
 
           <button
             onClick={() => { setSessionPrs([]); window.location.href = "/dashboard"; }}

@@ -24,6 +24,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   overallRpe: integer("overall_rpe"), // Añadido para compatibilidad
   completed: boolean("completed").default(false), // Añadido para compatibilidad
   notes: text("notes"),
+  analysisSummary: text("analysis_summary"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

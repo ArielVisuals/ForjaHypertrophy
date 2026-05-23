@@ -357,13 +357,20 @@ export async function deleteWorkout(workoutId: string) {
 /**
  * Marcar workout como completado
  */
-export async function completeWorkout(workoutId: string, duration: number, overallRpe: number, notes?: string) {
+export async function completeWorkout(
+  workoutId: string,
+  duration: number,
+  overallRpe: number,
+  notes?: string,
+  analysisSummary?: string,
+) {
   return updateWorkout(workoutId, {
     completed: true,
     durationMinutes: duration,
     overallRpe,
     completedAt: new Date(),
     ...(notes ? { notes } : {}),
+    ...(analysisSummary ? { analysisSummary } : {}),
   });
 }
 

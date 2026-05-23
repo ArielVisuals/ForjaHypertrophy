@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { createWorkout, completeWorkout, getWeeklyVolumeByMuscle, getWorkoutHistory, getStrengthTimeline, getMuscleRecovery, deleteWorkout, getSessionSets } from "@/lib/db/workouts";
+import { createWorkout, completeWorkout, getWeeklyVolumeByMuscle, getWorkoutHistory, getStrengthTimeline, getMuscleRecovery, deleteWorkout, getSessionSets, updateWorkout } from "@/lib/db/workouts";
+import { analyzeWorkout, type WorkoutExercise } from "@/lib/gemini";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -59,10 +60,44 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   if (action === "complete") {
-    const { sessionId, duration, overallRpe, notes } = data;
+    const { sessionId, duration, overallRpe, notes, sessionName } = data;
+
+    // 1. Mark workout as complete in DB immediately
     const { data: session, error } = await completeWorkout(sessionId, duration, overallRpe, notes);
     if (error) return new Response(JSON.stringify({ error }), { status: 500 });
-    return new Response(JSON.stringify(session), { status: 200 });
+
+    // 2. Build payload for El Arquitecto
+    let analysis: string | null = null;
+    try {
+      const { data: sets } = await getSessionSets(sessionId);
+      if (sets && sets.length > 0) {
+        // Group flat set rows by exercise
+        const exerciseMap = new Map<string, WorkoutExercise>();
+        for (const s of sets) {
+          if (!exerciseMap.has(s.exerciseName)) {
+            exerciseMap.set(s.exerciseName, { name: s.exerciseName, muscleGroup: s.muscleGroup, sets: [] });
+          }
+          exerciseMap.get(s.exerciseName)!.sets.push({ weightKg: s.weightKg, reps: s.reps, rpe: s.rpe });
+        }
+
+        // 3. Call Gemini — awaited here so summary screen receives analysis immediately
+        analysis = await analyzeWorkout({
+          sessionName: sessionName ?? session?.name ?? "Sesión",
+          durationMinutes: duration,
+          overallRpe,
+          notes: notes ?? null,
+          exercises: Array.from(exerciseMap.values()),
+        });
+
+        // 4. Persist analysis alongside the session
+        if (analysis) await updateWorkout(sessionId, { analysisSummary: analysis });
+      }
+    } catch (err) {
+      console.error("El Arquitecto pipeline error:", err);
+      analysis = "Sala de control temporalmente fuera de línea. Registro guardado localmente.";
+    }
+
+    return json({ session, analysis });
   }
 
   if (action === "cancel") {
