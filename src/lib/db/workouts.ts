@@ -4,7 +4,7 @@
 
 import { db } from "./index";
 import { workoutSessions, workoutSets, exercises as exercisesTable, workoutTemplates } from "./schema";
-import { eq, and, desc, asc, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, isNotNull, gte, count } from "drizzle-orm";
 
 function calcEpleyOneRM(weightKg: number, reps: number): number {
   if (reps === 1) return weightKg;
@@ -110,7 +110,7 @@ export async function getWeeklyVolumeByMuscle(userId: string) {
     const volumeRows = await db
       .select({
         muscleGroup: exercisesTable.muscleGroup,
-        sets:        sql<number>`CAST(COUNT(${workoutSets.id}) AS INTEGER)`,
+        sets:        count(workoutSets.id),
       })
       .from(workoutSets)
       .innerJoin(workoutSessions, eq(workoutSets.workoutSessionId, workoutSessions.id))
@@ -119,7 +119,7 @@ export async function getWeeklyVolumeByMuscle(userId: string) {
         and(
           eq(workoutSessions.userId, userId),
           eq(workoutSets.completed, true),
-          sql`${workoutSessions.startedAt} >= ${sevenDaysAgo}`,
+          gte(workoutSessions.startedAt, sevenDaysAgo),
         )
       )
       .groupBy(exercisesTable.muscleGroup);
@@ -706,7 +706,7 @@ export async function getWeeklyDigest(userId: string) {
         and(
           eq(workoutSessions.userId, userId),
           eq(workoutSessions.completed, true),
-          sql`${workoutSessions.startedAt} >= ${monday}`,
+          gte(workoutSessions.startedAt, monday),
         )
       );
 
