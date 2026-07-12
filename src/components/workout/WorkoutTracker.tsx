@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { enqueue, syncQueue, removeByTempSession } from "@/lib/offlineQueue";
+import { fetchExercisesCached } from "@/lib/exerciseCache";
+import { saveActiveSession, getActiveSession, clearActiveSession, type PersistedSession } from "@/lib/sessionPersistence";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExerciseSelector } from "./ExerciseSelector";
@@ -6,12 +9,8 @@ import { RestTimer } from "./RestTimer";
 import { ExerciseHistoryDrawer } from "./ExerciseHistoryDrawer";
 import NumberTicker from "../ui/NumberTicker";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
-import {
-  getTodaysProgramDay,
-  MUSCLE_GROUP_LABELS,
-  type ProgramDaySchedule,
-  type ProgramExercise,
-} from "@/lib/constants/programs";
+import { MUSCLE_GROUP_LABELS } from "@/lib/constants/programs";
+import type { ScheduleDay } from "@/lib/db/programs";
 import type { MuscleGroup } from "@/types/workout";
 
 // Lightweight Markdown renderer for El Arquitecto output
@@ -65,6 +64,7 @@ interface TodaySessionSummary {
   completedAt: string;
   durationMinutes: number | null;
   overallRpe: number | null;
+  analysisSummary?: string | null;
   exercises: {
     name: string;
     muscleGroup: string;
@@ -73,7 +73,6 @@ interface TodaySessionSummary {
 }
 
 interface WorkoutTrackerProps {
-  userId: string;
   initialProgram?: ActiveProgram | null;
   todaySession?: TodaySessionSummary | null;
 }
@@ -119,12 +118,13 @@ interface PrAlert {
 interface ActiveProgram {
   id: string;
   name: string;
-  splitType: string;
   currentWeek: number;
   durationWeeks: number;
+  /** 7 dias (0=Dom..6=Sab) con la prescripcion asignada por el entrenador */
+  schedule: ScheduleDay[];
 }
 
-export function WorkoutTracker({ userId, initialProgram, todaySession }: WorkoutTrackerProps) {
+export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerProps) {
   const [session, setSession]             = useState<{ id: string; name: string } | null>(null);
   const [exercises, setExercises]         = useState<ExerciseSession[]>([]);
   const [startTime, setStartTime]         = useState<number | null>(null);
@@ -140,8 +140,8 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   const [sessionPrs, setSessionPrs]       = useState<PrAlert[]>([]);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(initialProgram ?? null);
   const [weekAdvanced, setWeekAdvanced]   = useState(false);
-  const [todayPlan, setTodayPlan]         = useState<ProgramDaySchedule | null>(() =>
-    initialProgram ? getTodaysProgramDay(initialProgram.splitType) : null
+  const [todayPlan, setTodayPlan]         = useState<ScheduleDay | null>(() =>
+    initialProgram ? initialProgram.schedule[new Date().getDay()] ?? null : null
   );
   const [selectorFilter, setSelectorFilter] = useState<MuscleGroup | "all">("all");
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -155,34 +155,37 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   const [loadingPlan, setLoadingPlan]     = useState(false);
   const [architectAnalysis, setArchitectAnalysis] = useState<string | null>(null);
   const [analyzingSession, setAnalyzingSession]   = useState(false);
+  const [isOffline, setIsOffline]                 = useState(false);
+  const [interrupted, setInterrupted]             = useState<PersistedSession | null>(null);
+  const [copyFormat, setCopyFormat]               = useState<"md" | "json">("md");
+  const [copied, setCopied]                       = useState(false);
 
   // Programa activo: ya disponible desde SSR; solo hace fetch si faltó (sin programa activo server-side)
   useEffect(() => {
     if (!initialProgram) {
-      fetch(`/api/programs?userId=${userId}`)
+      fetch("/api/programs?action=active")
         .then(r => r.json())
-        .then((programs: any[]) => {
-          const active = programs.find((p: any) => p.active);
-          if (!active) return;
-          setActiveProgram(active);
-          setTodayPlan(getTodaysProgramDay(active.splitType));
+        .then((program: ActiveProgram | null) => {
+          if (!program) return;
+          setActiveProgram(program);
+          setTodayPlan(program.schedule[new Date().getDay()] ?? null);
         })
         .catch(console.error);
     }
 
     // Templates y recovery son secundarios — siguen siendo client-side
-    fetch(`/api/templates?userId=${userId}`)
+    fetch("/api/templates")
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setTemplates(data); })
       .catch(console.error);
 
-    fetch(`/api/workouts?action=recovery&userId=${userId}`)
+    fetch("/api/workouts?action=recovery")
       .then(r => r.json())
       .then((data: any[]) => {
         if (Array.isArray(data)) setRecoverySuggestions(data);
       })
       .catch(console.error);
-  }, [userId]);
+  }, []);
 
   // Temporizador de sesión
   useEffect(() => {
@@ -200,6 +203,49 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     return () => clearTimeout(t);
   }, [prAlert]);
 
+  // On mount: check for interrupted session
+  useEffect(() => {
+    getActiveSession().then(saved => {
+      if (!saved) return;
+      const exs = Array.isArray(saved.exercises) ? saved.exercises : [];
+      const valid = exs.length > 0 && exs.every((e: any) => Array.isArray(e?.sets));
+      if (!valid) { clearActiveSession(); return; }
+      setInterrupted(saved);
+    }).catch(console.error);
+  }, []);
+
+  // Auto-save active session state on every exercise change
+  useEffect(() => {
+    if (!session || exercises.length === 0) return;
+    const timer = setTimeout(() => {
+      saveActiveSession({
+        sessionId:    session.id,
+        sessionName:  session.name,
+        elapsedTime,
+        savedAt:      Date.now(),
+        exercises,
+      }).catch(console.error);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [session, exercises]); // elapsedTime intentionally omitted — captured on exercise events
+
+  // Online/offline detection + auto-sync when reconnecting
+  useEffect(() => {
+    setIsOffline(!navigator.onLine);
+    const handleOnline = async () => {
+      setIsOffline(false);
+      const { synced } = await syncQueue();
+      if (synced > 0) console.log(`[FORJA] ${synced} operación(es) sincronizada(s)`);
+    };
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const formatTime = (s: number) => {
     const h   = Math.floor(s / 3600);
     const m   = Math.floor((s % 3600) / 60);
@@ -215,9 +261,9 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
       const histResults = await Promise.all(
         tmpl.exercises.map(({ id }: any) =>
           Promise.all([
-            fetch(`/api/exercises?action=history&exerciseId=${id}&userId=${userId}`)
+            fetch(`/api/exercises?action=history&exerciseId=${id}`)
               .then(r => r.json()).catch(() => null),
-            fetch(`/api/exercises?action=last-sets&exerciseId=${id}&userId=${userId}`)
+            fetch(`/api/exercises?action=last-sets&exerciseId=${id}`)
               .then(r => r.json()).catch(() => []),
           ])
         )
@@ -259,7 +305,6 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           name: templateName.trim(),
           exercises: exercises.map(e => ({ id: e.id, name: e.name, muscleGroup: e.muscleGroup })),
         }),
@@ -281,20 +326,20 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     setTemplates(prev => prev.filter(t => t.id !== id));
   };
 
-  const loadPlanExercises = async (planExercises: ProgramExercise[]) => {
+  const loadPlanExercises = async (planExercises: ScheduleDay["exercises"]) => {
     setLoadingPlan(true);
     try {
-      const allExRes = await fetch("/api/exercises");
-      const allExercises: { id: string; name: string; muscleGroup?: string; muscle_group?: string }[] = await allExRes.json();
+      // Cached-first: works online and offline
+      const allExercises = await fetchExercisesCached();
       const nameMap = new Map(allExercises.map(ex => [ex.name.toLowerCase(), ex]));
 
       // Resolve or create each plan exercise
-      const resolved: { id: string; name: string; muscleGroup: string; planEx: ProgramExercise }[] = [];
+      const resolved: { id: string; name: string; muscleGroup: string; planEx: ScheduleDay["exercises"][number] }[] = [];
       for (const planEx of planExercises) {
         const existing = nameMap.get(planEx.name.toLowerCase());
         if (existing) {
           resolved.push({ id: existing.id, name: planEx.name, muscleGroup: planEx.muscleGroup, planEx });
-        } else {
+        } else if (navigator.onLine) {
           try {
             const r = await fetch("/api/exercises", {
               method: "POST",
@@ -306,18 +351,22 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
           } catch {
             resolved.push({ id: crypto.randomUUID(), name: planEx.name, muscleGroup: planEx.muscleGroup, planEx });
           }
+        } else {
+          resolved.push({ id: crypto.randomUUID(), name: planEx.name, muscleGroup: planEx.muscleGroup, planEx });
         }
       }
 
-      // Batch-fetch history for all exercises
+      // Batch-fetch history — skipped when offline (no data = default weights, still fully usable)
       const histResults = await Promise.all(
         resolved.map(({ id }) =>
-          Promise.all([
-            fetch(`/api/exercises?action=history&exerciseId=${id}&userId=${userId}`)
-              .then(r => r.json()).catch(() => null),
-            fetch(`/api/exercises?action=last-sets&exerciseId=${id}&userId=${userId}`)
-              .then(r => r.json()).catch(() => []),
-          ])
+          navigator.onLine
+            ? Promise.all([
+                fetch(`/api/exercises?action=history&exerciseId=${id}`)
+                  .then(r => r.json()).catch(() => null),
+                fetch(`/api/exercises?action=last-sets&exerciseId=${id}`)
+                  .then(r => r.json()).catch(() => []),
+              ])
+            : Promise.resolve([null, []] as [null, never[]])
         )
       );
 
@@ -330,7 +379,7 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
           setNumber: k + 1,
           reps:      0,
           weightKg:  defaultWeight,
-          rir:       planEx.rirTarget,
+          rir:       planEx.rirTarget ?? 2,
           completed: false,
         }));
 
@@ -345,7 +394,7 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
           suggestedWeight:     hist?.suggestedWeight,
           progressionDir:      hist?.progressionDir,
           prescribedRepRange:  planEx.repRange,
-          prescribedRirTarget: planEx.rirTarget,
+          prescribedRirTarget: planEx.rirTarget ?? undefined,
         };
       });
 
@@ -371,12 +420,20 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   }, [activeProgram, todayPlan]);
 
   const createSession = async (name: string) => {
-    // toLocaleDateString("en-CA") = "YYYY-MM-DD" in the user's local timezone
+    setInterrupted(null);
     const localDate = new Date().toLocaleDateString("en-CA");
+    if (!navigator.onLine) {
+      const tempId = `OFFLINE_${crypto.randomUUID()}`;
+      await enqueue("create-session", { action: "create", name, localDate }, tempId);
+      const data = { id: tempId, name };
+      setSession(data);
+      setStartTime(Date.now());
+      return data;
+    }
     const response = await fetch("/api/workouts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create", userId, name, localDate }),
+      body: JSON.stringify({ action: "create", name, localDate }),
     });
     const data = await response.json();
     setSession(data);
@@ -408,8 +465,8 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     setLoadingHistory(true);
     try {
       const [histRes, lastRes] = await Promise.all([
-        fetch(`/api/exercises?action=history&exerciseId=${exerciseId}&userId=${userId}`),
-        fetch(`/api/exercises?action=last-sets&exerciseId=${exerciseId}&userId=${userId}`),
+        fetch(`/api/exercises?action=history&exerciseId=${exerciseId}`),
+        fetch(`/api/exercises?action=last-sets&exerciseId=${exerciseId}`),
       ]);
       const hist = await histRes.json();
       const last = await lastRes.json();
@@ -468,25 +525,45 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   const completeSet = async (exIdx: number, setIdx: number) => {
     const ex  = exercises[exIdx];
     const set = ex.sets[setIdx];
-    if (set.reps <= 0) return alert("Registra las repeticiones");
+    const isCardio = ex.muscleGroup === "cardio";
+    if (!isCardio && set.reps <= 0) return alert("Registra las repeticiones");
     if (!session) return;
 
-    try {
-      await fetch("/api/workouts/sets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workoutSessionId: session.id,
-          exerciseId:       ex.id,
-          setNumber:        set.setNumber,
-          reps:             set.reps,
-          weightKg:         set.weightKg > 0 ? set.weightKg.toString() : null,
-          rpe:              10 - set.rir,
-          completed:        true,
-        }),
-      });
-    } catch (e) {
-      console.error("Error guardando set:", e);
+    const setPayload = {
+      workoutSessionId: session.id,
+      exerciseId:       ex.id,
+      setNumber:        set.setNumber,
+      reps:             isCardio ? 1 : set.reps,
+      weightKg:         (!isCardio && set.weightKg > 0) ? set.weightKg.toString() : null,
+      rpe:              isCardio ? null : (10 - set.rir),
+      completed:        true,
+    };
+    const isOfflineSession = session.id.startsWith("OFFLINE_");
+    if (isOfflineSession || !navigator.onLine) {
+      await enqueue("add-set", setPayload, isOfflineSession ? session.id : undefined);
+    } else {
+      try {
+        await fetch("/api/workouts/sets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(setPayload),
+        });
+      } catch {
+        await enqueue("add-set", setPayload);
+      }
+    }
+
+    // Cardio: just mark completed, no PR detection, no rest timer
+    if (isCardio) {
+      setExercises(prev =>
+        prev.map((exercise, i) =>
+          i !== exIdx ? exercise : {
+            ...exercise,
+            sets: exercise.sets.map((s, j) => j !== setIdx ? s : { ...s, completed: true }),
+          }
+        )
+      );
+      return;
     }
 
     // 1RM-based PR using Epley formula (more accurate than raw weight)
@@ -559,15 +636,20 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   const cancelSession = async () => {
     if (!session) return;
     setCancelling(true);
-    try {
-      await fetch("/api/workouts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", sessionId: session.id }),
-      });
-    } catch (e) {
-      console.error("Error cancelando sesión:", e);
+    if (session.id.startsWith("OFFLINE_")) {
+      await removeByTempSession(session.id);
+    } else {
+      try {
+        await fetch("/api/workouts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cancel", sessionId: session.id }),
+        });
+      } catch (e) {
+        console.error("Error cancelando sesión:", e);
+      }
     }
+    await clearActiveSession();
     setSession(null);
     setExercises([]);
     setStartTime(null);
@@ -605,29 +687,234 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     if (!session) return;
     setAnalyzingSession(true);
     const durationMinutes = Math.max(1, Math.floor(elapsedTime / 60));
-    try {
-      const res = await fetch("/api/workouts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action:      "complete",
-          sessionId:   session.id,
-          sessionName: session.name,
-          duration:    durationMinutes,
-          overallRpe:  sessionRpe,
-          notes:       sessionNotes || undefined,
-        }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      setArchitectAnalysis(payload.analysis ?? null);
-    } catch (e) {
-      console.error("Error completando sesión:", e);
+    const exerciseNotesMap = exercises
+      .filter(e => e.notes?.trim())
+      .map(e => ({ name: e.name, notes: e.notes!.trim() }));
+
+    const completePayload = {
+      action:        "complete",
+      sessionId:     session.id,
+      sessionName:   session.name,
+      duration:      durationMinutes,
+      overallRpe:    sessionRpe,
+      notes:         sessionNotes || undefined,
+      exerciseNotes: exerciseNotesMap.length > 0 ? exerciseNotesMap : undefined,
+    };
+    const isOfflineSession = session.id.startsWith("OFFLINE_");
+
+    if (!navigator.onLine) {
+      // Truly offline: queue and show placeholder
+      await enqueue("complete-session", completePayload, isOfflineSession ? session.id : undefined);
+      setArchitectAnalysis("Sesión guardada offline. El Arquitecto analizará los datos cuando recuperes conexión.");
+    } else if (isOfflineSession) {
+      // Session was created offline but device is now online: sync the full queue
+      // (create-session → add-sets → complete-session) and capture El Arquitecto analysis
+      await enqueue("complete-session", completePayload, session.id);
+      try {
+        const { analysis } = await syncQueue();
+        setArchitectAnalysis(analysis ?? null);
+      } catch {
+        setArchitectAnalysis(null);
+      }
+    } else {
+      // Normal online session: direct call
+      try {
+        const res = await fetch("/api/workouts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(completePayload),
+        });
+        const payload = await res.json().catch(() => ({}));
+        setArchitectAnalysis(payload.analysis ?? null);
+      } catch {
+        await enqueue("complete-session", completePayload);
+        setArchitectAnalysis("Sesión guardada offline. El Arquitecto analizará los datos cuando recuperes conexión.");
+      }
     }
+    await clearActiveSession();
     setStartTime(null);
     setAnalyzingSession(false);
     setShowRating(false);
     setShowSummary(true);
   };
+
+  const resumeSession = () => {
+    if (!interrupted) return;
+    setSession({ id: interrupted.sessionId, name: interrupted.sessionName });
+    setExercises(interrupted.exercises);
+    setElapsedTime(interrupted.elapsedTime);
+    setStartTime(Date.now() - interrupted.elapsedTime * 1000);
+    setInterrupted(null);
+  };
+
+  const dismissInterrupted = async () => {
+    await clearActiveSession();
+    setInterrupted(null);
+  };
+
+  // ─── SESIÓN INTERRUMPIDA ───────────────────────────────────────────────────
+  if (!session && interrupted) {
+    const safeExs   = Array.isArray(interrupted.exercises) ? interrupted.exercises : [];
+    const minsAgo   = Math.round((Date.now() - interrupted.savedAt) / 60000);
+    const totalSets = safeExs.flatMap((e: any) => Array.isArray(e?.sets) ? e.sets : []).length;
+    const doneSets  = safeExs.flatMap((e: any) => Array.isArray(e?.sets) ? e.sets : []).filter((s: any) => s?.completed).length;
+
+    return createPortal(
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
+      >
+        <div style={{ width: "100%", maxWidth: "480px" }}>
+
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚡</div>
+            <p style={{ fontSize: "9px", fontWeight: 900, color: "rgba(245,158,11,0.7)", textTransform: "uppercase", letterSpacing: "0.35em", marginBottom: "0.5rem" }}>
+              SESIÓN INTERRUMPIDA
+            </p>
+            <h2 style={{ fontSize: "clamp(1.4rem,4vw,2rem)", fontWeight: 900, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: "0.625rem" }}>
+              {interrupted.sessionName}
+            </h2>
+            <p style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.35)" }}>
+              {doneSets} de {totalSets} sets completados
+              {" · "}guardado hace {minsAgo < 1 ? "menos de 1 min" : `${minsAgo} min`}
+            </p>
+          </div>
+
+          {/* Exercises list */}
+          <div style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: "1.25rem", padding: "1.25rem", marginBottom: "1.5rem" }}>
+            <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(245,158,11,0.5)", textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: "0.75rem" }}>
+              EJERCICIOS EN PROGRESO
+            </p>
+            {safeExs.map((ex: any, i: number) => {
+              const sets  = Array.isArray(ex?.sets) ? ex.sets : [];
+              const done  = sets.filter((s: any) => s?.completed).length;
+              const total = sets.length;
+              return (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: i < safeExs.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.01em" }}>{ex.name}</span>
+                  <span style={{ fontSize: "10px", fontWeight: 900, color: done === total ? "#34d399" : done > 0 ? "#f59e0b" : "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    {done}/{total} sets
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Actions */}
+          <button
+            onClick={resumeSession}
+            style={{ width: "100%", display: "block", padding: "1.125rem", borderRadius: "1.25rem", background: "#f59e0b", color: "#000", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px", border: "none", cursor: "pointer", marginBottom: "0.75rem", boxSizing: "border-box" }}
+          >
+            Retomar sesión →
+          </button>
+          <button
+            onClick={dismissInterrupted}
+            style={{ width: "100%", display: "block", padding: "1rem", borderRadius: "1.25rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.25)", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px", cursor: "pointer", boxSizing: "border-box" }}
+          >
+            Descartar
+          </button>
+
+        </div>
+      </motion.div>,
+      document.body
+    );
+  }
+
+  // ─── UTILIDAD: copiar resumen ─────────────────────────────────────────────
+  type SummaryExercise = { name: string; muscleGroup: string; sets: { weightKg: number; reps: number; rir?: number | null }[] };
+  type SummaryData = {
+    name: string;
+    date?: string;
+    durationMinutes: number;
+    overallRpe: number;
+    totalVolumeKg: number;
+    notes?: string | null;
+    exercises: SummaryExercise[];
+    prs?: { exerciseName: string; weight: number; reps: number }[];
+  };
+
+  const triggerCopy = (text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {
+      const el = document.createElement("textarea");
+      el.value = text; document.body.appendChild(el); el.select(); document.execCommand("copy"); document.body.removeChild(el);
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const buildMarkdown = (d: SummaryData): string => {
+    const h = Math.floor(d.durationMinutes / 60), m = d.durationMinutes % 60;
+    const dur = h > 0 ? `${h}h ${m}min` : `${m}min`;
+    let md = `# ${d.name}\n`;
+    if (d.date) md += `**Fecha:** ${d.date}  \n`;
+    md += `**Duración:** ${dur}  \n**RPE:** ${d.overallRpe}/10  \n`;
+    if (d.totalVolumeKg > 0) md += `**Volumen total:** ${Math.round(d.totalVolumeKg).toLocaleString("es-ES")} kg  \n`;
+    if (d.notes) md += `**Notas:** ${d.notes}  \n`;
+    md += `\n## Ejercicios\n`;
+    d.exercises.forEach(ex => {
+      if (ex.sets.length === 0) return;
+      md += `\n### ${ex.name} (${MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup})\n`;
+      ex.sets.forEach((s, i) => {
+        const w = s.weightKg > 0 ? `${s.weightKg}kg` : "Peso corporal";
+        const r = s.rir != null && s.rir >= 0 ? ` · RIR ${s.rir}` : "";
+        md += `- Set ${i + 1}: ${w} × ${s.reps}${r}\n`;
+      });
+    });
+    if (d.prs && d.prs.length > 0) {
+      md += `\n## Nuevos récords\n`;
+      d.prs.forEach(pr => { md += `- **${pr.exerciseName}**: ${pr.weight}kg × ${pr.reps}\n`; });
+    }
+    return md;
+  };
+
+  const buildJson = (d: SummaryData): string => JSON.stringify({
+    session:           d.name,
+    date:              d.date ?? null,
+    duration_minutes:  d.durationMinutes,
+    overall_rpe:       d.overallRpe,
+    total_volume_kg:   Math.round(d.totalVolumeKg),
+    notes:             d.notes ?? null,
+    exercises:         d.exercises.map(ex => ({
+      name:         ex.name,
+      muscle_group: ex.muscleGroup,
+      sets:         ex.sets.map((s, i) => ({ set: i + 1, weight_kg: s.weightKg, reps: s.reps, rir: s.rir ?? null })),
+    })),
+    personal_records: d.prs ?? [],
+  }, null, 2);
+
+  const CopyBar = ({ data }: { data: SummaryData }) => (
+    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "1.5rem" }}>
+      {(["md", "json"] as const).map(fmt => (
+        <button
+          key={fmt}
+          onClick={() => setCopyFormat(fmt)}
+          style={{
+            padding: "0.375rem 0.75rem", borderRadius: "0.5rem", fontSize: "9px", fontWeight: 900,
+            textTransform: "uppercase", letterSpacing: "0.15em", border: "none", cursor: "pointer",
+            background: copyFormat === fmt ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+            color:      copyFormat === fmt ? "#fff" : "rgba(255,255,255,0.3)",
+            transition: "all 0.15s",
+          }}
+        >
+          {fmt === "md" ? "Markdown" : "JSON"}
+        </button>
+      ))}
+      <button
+        onClick={() => triggerCopy(copyFormat === "md" ? buildMarkdown(data) : buildJson(data))}
+        style={{
+          marginLeft: "auto", padding: "0.375rem 1rem", borderRadius: "0.5rem", fontSize: "9px",
+          fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", border: "none",
+          cursor: "pointer", transition: "all 0.15s",
+          background: copied ? "rgba(52,211,153,0.15)" : "rgba(37,99,235,0.2)",
+          color:      copied ? "#34d399"               : "#60a5fa",
+        }}
+      >
+        {copied ? "✓ Copiado" : "Copiar"}
+      </button>
+    </div>
+  );
 
   // ─── YA ENTRENASTE HOY ────────────────────────────────────────────────────
   // Start false (SSR-safe). useEffect fires only in the browser so the local
@@ -654,13 +941,12 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
     );
     const fmt = (min: number) => `${Math.floor(min / 60)}h ${min % 60}min`;
 
-    return createPortal(
+    return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", overflowY: "auto" }}
       >
-        <div style={{ width: "100%", maxWidth: "680px", margin: "0 auto", padding: "3rem 1.25rem 6rem" }}>
+        <div style={{ width: "100%", maxWidth: "680px", margin: "0 auto", padding: "0 0 5rem" }}>
 
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
@@ -690,6 +976,19 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
             <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "1rem", padding: "0.875rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <span style={{ fontSize: "8px", fontWeight: 900, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.2em" }}>VOLUMEN TOTAL</span>
               <span style={{ fontSize: "1.125rem", fontWeight: 900, color: "rgba(255,255,255,0.6)" }}>{Math.round(totalVol).toLocaleString("es-ES")} KG</span>
+            </div>
+          )}
+
+          {/* El Arquitecto */}
+          {s.analysisSummary && (
+            <div style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.22)", borderRadius: "1.5rem", padding: "1.5rem", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
+                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8", boxShadow: "0 0 8px rgba(129,140,248,0.8)", flexShrink: 0 }} />
+                <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(129,140,248,0.7)", textTransform: "uppercase", letterSpacing: "0.35em" }}>
+                  EL ARQUITECTO · ANÁLISIS DE SESIÓN
+                </p>
+              </div>
+              <ArchitectMarkdown text={s.analysisSummary} />
             </div>
           )}
 
@@ -732,6 +1031,20 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
             })}
           </div>
 
+          {/* Copiar resumen */}
+          <CopyBar data={{
+            name:           s.name,
+            date:           new Date(s.completedAt).toLocaleDateString("es-ES"),
+            durationMinutes: s.durationMinutes ?? 0,
+            overallRpe:     s.overallRpe ?? 0,
+            totalVolumeKg:  totalVol,
+            exercises:      s.exercises.map(ex => ({
+              name:        ex.name,
+              muscleGroup: ex.muscleGroup,
+              sets:        ex.sets.map(set => ({ weightKg: set.weightKg, reps: set.reps, rir: set.rpe != null ? 10 - set.rpe : null })),
+            })),
+          }} />
+
           {/* CTA */}
           <div style={{ textAlign: "center" }}>
             <a href="/dashboard" style={{ display: "inline-block", padding: "0.875rem 2rem", borderRadius: "1rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", fontSize: "10px", fontWeight: 900, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.2em", textDecoration: "none" }}>
@@ -740,8 +1053,7 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
           </div>
 
         </div>
-      </motion.div>,
-      document.body
+      </motion.div>
     );
   }
 
@@ -1058,13 +1370,12 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
       sessionRpe <= 6 ? "text-blue-400" :
       sessionRpe <= 8 ? "text-orange-400" : "text-red-400";
 
-    return createPortal(
+    return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", overflowY: "auto" }}
       >
-        <div style={{ width: "100%", maxWidth: "560px", margin: "0 auto", padding: "3rem 1.25rem 6rem" }}>
+        <div style={{ width: "100%", maxWidth: "560px", margin: "0 auto", padding: "0 0 5rem" }}>
 
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <p style={{ fontSize: "9px", fontWeight: 900, color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: "0.5rem" }}>
@@ -1125,8 +1436,7 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
             {analyzingSession ? "⚙ Procesando telemetría..." : "Finalizar Misión"}
           </button>
         </div>
-      </motion.div>,
-      document.body
+      </motion.div>
     );
   }
 
@@ -1134,13 +1444,12 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
   if (showSummary) {
     const completedSets = exercises.flatMap(e => e.sets).filter(s => s.completed);
 
-    return createPortal(
+    return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", overflowY: "auto" }}
       >
-        <div style={{ width: "100%", maxWidth: "720px", margin: "0 auto", padding: "3rem 1.25rem 6rem" }}>
+        <div style={{ width: "100%", maxWidth: "720px", margin: "0 auto", padding: "0 0 5rem" }}>
 
           <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🏆</div>
@@ -1176,6 +1485,23 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
                 )}
               </div>
             ))}
+          </div>
+
+          {/* ── EL ARQUITECTO — Análisis post-sesión ── */}
+          <div style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.22)", borderRadius: "1.5rem", padding: "1.5rem", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8", boxShadow: "0 0 8px rgba(129,140,248,0.8)", flexShrink: 0 }} />
+              <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(129,140,248,0.7)", textTransform: "uppercase", letterSpacing: "0.35em" }}>
+                EL ARQUITECTO · ANÁLISIS DE SESIÓN
+              </p>
+            </div>
+            {architectAnalysis ? (
+              <ArchitectMarkdown text={architectAnalysis} />
+            ) : (
+              <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.2)", fontStyle: "italic", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+                Sala de control temporalmente fuera de línea.
+              </p>
+            )}
           </div>
 
           {/* Exercise breakdown */}
@@ -1296,23 +1622,26 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
             </div>
           )}
 
-          {/* ── EL ARQUITECTO — Análisis post-sesión ── */}
-          <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.18)", borderRadius: "1.25rem", padding: "1.5rem", marginBottom: "1rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1rem" }}>
-              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8", boxShadow: "0 0 8px rgba(129,140,248,0.8)", flexShrink: 0 }} />
-              <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(129,140,248,0.7)", textTransform: "uppercase", letterSpacing: "0.35em" }}>
-                EL ARQUITECTO · ANÁLISIS DE SESIÓN
-              </p>
-            </div>
-
-            {architectAnalysis ? (
-              <ArchitectMarkdown text={architectAnalysis} />
-            ) : (
-              <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.2)", fontStyle: "italic", textTransform: "uppercase", letterSpacing: "0.15em" }}>
-                Sala de control temporalmente fuera de línea.
-              </p>
-            )}
-          </div>
+          {/* Copiar resumen */}
+          {session && (() => {
+            const doneExs = exercises.map(ex => ({
+              name:        ex.name,
+              muscleGroup: ex.muscleGroup,
+              sets:        ex.sets.filter(s => s.completed).map(s => ({ weightKg: s.weightKg, reps: s.reps, rir: s.rir })),
+            })).filter(ex => ex.sets.length > 0);
+            const vol = doneExs.reduce((a, ex) => a + ex.sets.reduce((b, s) => b + s.weightKg * s.reps, 0), 0);
+            return (
+              <CopyBar data={{
+                name:            session.name,
+                durationMinutes: Math.max(1, Math.floor(elapsedTime / 60)),
+                overallRpe:      sessionRpe,
+                totalVolumeKg:   vol,
+                notes:           sessionNotes || null,
+                exercises:       doneExs,
+                prs:             sessionPrs,
+              }} />
+            );
+          })()}
 
           <button
             onClick={() => { setSessionPrs([]); window.location.href = "/dashboard"; }}
@@ -1321,14 +1650,24 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
             Volver al Centro de Mando
           </button>
         </div>
-      </motion.div>,
-      document.body
+      </motion.div>
     );
   }
 
   // ─── SESIÓN ACTIVA ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-12 pb-40">
+
+      {/* Offline Banner */}
+      {isOffline && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+          style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+          <span className="text-base shrink-0">⚡</span>
+          <p className="text-[11px] font-bold m-0" style={{ color: "rgba(245,158,11,0.9)" }}>
+            Sin conexión — los sets se guardan localmente y se sincronizan al recuperar señal
+          </p>
+        </div>
+      )}
 
       {/* PR Alert */}
       <AnimatePresence>
@@ -1491,46 +1830,50 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
                     </div>
                   )}
                 </div>
-                <div className="px-3 py-3 sm:px-5 sm:py-4 rounded-xl sm:rounded-2xl bg-white/[0.03] border border-white/5 text-right space-y-0.5 shrink-0">
-                  {ex.previousPerformance ? (
-                    <>
-                      <div className="text-[7px] font-bold text-white/20 uppercase tracking-widest">ÚLTIMA VEZ</div>
-                      <div className="text-sm font-black text-white/70 whitespace-nowrap">
-                        {ex.previousPerformance.weight} KG × {ex.previousPerformance.reps}
-                      </div>
-                      {ex.estimatedOneRM && (
-                        <div className="text-[8px] font-bold text-blue-400 uppercase tracking-widest whitespace-nowrap">
-                          1RM ~{ex.estimatedOneRM} KG
+                {ex.muscleGroup !== "cardio" && (
+                  <div className="px-3 py-3 sm:px-5 sm:py-4 rounded-xl sm:rounded-2xl bg-white/[0.03] border border-white/5 text-right space-y-0.5 shrink-0">
+                    {ex.previousPerformance ? (
+                      <>
+                        <div className="text-[7px] font-bold text-white/20 uppercase tracking-widest">ÚLTIMA VEZ</div>
+                        <div className="text-sm font-black text-white/70 whitespace-nowrap">
+                          {ex.previousPerformance.weight} KG × {ex.previousPerformance.reps}
                         </div>
-                      )}
-                      {ex.suggestedWeight && (
-                        <div className={`text-[8px] font-bold uppercase tracking-widest whitespace-nowrap ${
-                          ex.progressionDir === "up"   ? "text-emerald-400" :
-                          ex.progressionDir === "down" ? "text-orange-400"  : "text-blue-400"
-                        }`}>
-                          {ex.progressionDir === "up"   ? `↑ ${ex.suggestedWeight} KG` :
-                           ex.progressionDir === "down" ? `↓ ${ex.suggestedWeight} KG` :
-                           `= ${ex.suggestedWeight} KG`}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-[8px] font-bold text-white/20 uppercase tracking-widest">SIN HISTORIAL</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Column headers */}
-              <div className="grid grid-cols-12 gap-2 sm:gap-4 px-1 mb-2">
-                {["", "KG", "REPS", "RIR", ""].map((h, i) => (
-                  <div key={i} className={i === 0 ? "col-span-1" : i === 4 ? "col-span-2" : "col-span-3"}>
-                    <span className="text-[7px] sm:text-[8px] font-black text-white/20 tracking-widest uppercase ml-1">{h}</span>
+                        {ex.estimatedOneRM && (
+                          <div className="text-[8px] font-bold text-blue-400 uppercase tracking-widest whitespace-nowrap">
+                            1RM ~{ex.estimatedOneRM} KG
+                          </div>
+                        )}
+                        {ex.suggestedWeight && (
+                          <div className={`text-[8px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                            ex.progressionDir === "up"   ? "text-emerald-400" :
+                            ex.progressionDir === "down" ? "text-orange-400"  : "text-blue-400"
+                          }`}>
+                            {ex.progressionDir === "up"   ? `↑ ${ex.suggestedWeight} KG` :
+                             ex.progressionDir === "down" ? `↓ ${ex.suggestedWeight} KG` :
+                             `= ${ex.suggestedWeight} KG`}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-[8px] font-bold text-white/20 uppercase tracking-widest">SIN HISTORIAL</div>
+                    )}
                   </div>
-                ))}
+                )}
               </div>
 
-              {/* Ghost sets — referencia sesión anterior */}
-              {ex.lastSessionSets && ex.lastSessionSets.length > 0 && (
+              {/* Column headers — hidden for cardio */}
+              {ex.muscleGroup !== "cardio" && (
+                <div className="grid grid-cols-12 gap-2 sm:gap-4 px-1 mb-2">
+                  {["", "KG", "REPS", "RIR", ""].map((h, i) => (
+                    <div key={i} className={i === 0 ? "col-span-1" : i === 4 ? "col-span-2" : "col-span-3"}>
+                      <span className="text-[7px] sm:text-[8px] font-black text-white/20 tracking-widest uppercase ml-1">{h}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ghost sets — referencia sesión anterior (solo fuerza) */}
+              {ex.muscleGroup !== "cardio" && ex.lastSessionSets && ex.lastSessionSets.length > 0 && (
                 <div className="mb-4 space-y-1.5">
                   <p className="text-[7px] font-black text-white/15 uppercase tracking-[0.35em] px-1 mb-2">SESIÓN ANTERIOR</p>
                   {ex.lastSessionSets.map((ghost, gi) => (
@@ -1563,49 +1906,73 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
               {/* Sets */}
               <div className="space-y-3">
                 {ex.sets.map((set, setIdx) => (
-                  <div
-                    key={set.id}
-                    className={`grid grid-cols-12 gap-2 sm:gap-4 rounded-xl sm:rounded-2xl transition-all ${
-                      set.completed ? "opacity-35 grayscale pointer-events-none" : ""
-                    }`}
-                  >
-                    <div className="col-span-1 flex items-center justify-center font-black text-white/20 text-[10px]">
-                      S{set.setNumber}
+                  ex.muscleGroup === "cardio" ? (
+                    /* ── Cardio set: solo botón completado ── */
+                    <div
+                      key={set.id}
+                      className={`grid grid-cols-12 gap-2 sm:gap-4 transition-all ${
+                        set.completed ? "opacity-35 grayscale pointer-events-none" : ""
+                      }`}
+                    >
+                      <div className="col-span-1 flex items-center justify-center font-black text-white/20 text-[10px]">
+                        S{set.setNumber}
+                      </div>
+                      <div className="col-span-11">
+                        <button
+                          onClick={() => completeSet(exIdx, setIdx)}
+                          className="w-full h-11 sm:h-14 rounded-xl flex items-center justify-center gap-2 text-white font-black text-xs uppercase tracking-widest transition-all bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600 active:scale-95"
+                        >
+                          <span>✓</span>
+                          <span>Completado</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="col-span-3">
-                      <input
-                        type="number" step="0.5" min="0" inputMode="decimal"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none focus:border-blue-500/50 transition-all"
-                        value={set.weightKg || ""}
-                        onChange={e => updateSet(exIdx, setIdx, "weightKg", parseFloat(e.target.value) || 0)}
-                      />
+                  ) : (
+                    /* ── Fuerza: kg / reps / rir ── */
+                    <div
+                      key={set.id}
+                      className={`grid grid-cols-12 gap-2 sm:gap-4 rounded-xl sm:rounded-2xl transition-all ${
+                        set.completed ? "opacity-35 grayscale pointer-events-none" : ""
+                      }`}
+                    >
+                      <div className="col-span-1 flex items-center justify-center font-black text-white/20 text-[10px]">
+                        S{set.setNumber}
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="number" step="0.5" min="0" inputMode="decimal"
+                          className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none focus:border-blue-500/50 transition-all"
+                          value={set.weightKg || ""}
+                          onChange={e => updateSet(exIdx, setIdx, "weightKg", parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="number" min="1" inputMode="numeric"
+                          className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none focus:border-blue-500/50 transition-all"
+                          value={set.reps || ""}
+                          onChange={e => updateSet(exIdx, setIdx, "reps", parseInt(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <select
+                          className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none appearance-none cursor-pointer"
+                          value={set.rir}
+                          onChange={e => updateSet(exIdx, setIdx, "rir", parseInt(e.target.value))}
+                        >
+                          {[0, 1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-2 flex items-center">
+                        <button
+                          onClick={() => completeSet(exIdx, setIdx)}
+                          className="w-full h-11 sm:h-14 rounded-xl flex items-center justify-center text-white font-black text-xs uppercase tracking-widest transition-all bg-blue-600 hover:bg-blue-500 active:scale-95"
+                        >
+                          ✓
+                        </button>
+                      </div>
                     </div>
-                    <div className="col-span-3">
-                      <input
-                        type="number" min="1" inputMode="numeric"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none focus:border-blue-500/50 transition-all"
-                        value={set.reps || ""}
-                        onChange={e => updateSet(exIdx, setIdx, "reps", parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <select
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-2.5 sm:p-4 text-white font-black text-base sm:text-xl text-center outline-none appearance-none cursor-pointer"
-                        value={set.rir}
-                        onChange={e => updateSet(exIdx, setIdx, "rir", parseInt(e.target.value))}
-                      >
-                        {[0, 1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div className="col-span-2 flex items-center">
-                      <button
-                        onClick={() => completeSet(exIdx, setIdx)}
-                        className="w-full h-11 sm:h-14 rounded-xl flex items-center justify-center text-white font-black text-xs uppercase tracking-widest transition-all bg-blue-600 hover:bg-blue-500 active:scale-95"
-                      >
-                        ✓
-                      </button>
-                    </div>
-                  </div>
+                  )
                 ))}
               </div>
 
@@ -1664,7 +2031,6 @@ export function WorkoutTracker({ userId, initialProgram, todaySession }: Workout
       )}
       {drawerExercise && (
         <ExerciseHistoryDrawer
-          userId={userId}
           exerciseId={drawerExercise.id}
           exerciseName={drawerExercise.name}
           muscleGroup={drawerExercise.muscleGroup}

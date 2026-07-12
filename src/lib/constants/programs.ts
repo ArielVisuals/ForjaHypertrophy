@@ -842,17 +842,6 @@ export const SPLIT_SCHEDULES: Record<string, (ProgramDaySchedule | null)[]> = {
 };
 
 /**
- * Devuelve el plan del día para el split dado, basado en el día de la semana actual.
- * Retorna null si es día de descanso o el split no está definido.
- */
-export function getTodaysProgramDay(splitType: string): ProgramDaySchedule | null {
-  const schedule = SPLIT_SCHEDULES[splitType];
-  if (!schedule) return null;
-  const dayOfWeek = new Date().getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
-  return schedule[dayOfWeek] ?? null;
-}
-
-/**
  * Etiquetas de display para grupos musculares.
  */
 export const MUSCLE_GROUP_LABELS: Record<string, string> = {
@@ -863,6 +852,7 @@ export const MUSCLE_GROUP_LABELS: Record<string, string> = {
   arms:      "Brazos",
   core:      "Core",
   full_body: "Cuerpo Completo",
+  cardio:    "Cardio",
 };
 
 /**

@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { getTodaysProgramDay, MUSCLE_GROUP_LABELS, type ProgramDaySchedule } from "@/lib/constants/programs";
+import { MUSCLE_GROUP_LABELS } from "@/lib/constants/programs";
+import type { ScheduleDay } from "@/lib/db/programs";
 
 interface ActiveProgram {
   name: string;
-  splitType: string;
   currentWeek: number;
   durationWeeks: number;
+  /** 7 dias (0=Dom..6=Sab) asignados por el entrenador */
+  schedule: ScheduleDay[];
 }
 
 interface TodayPlanBannerProps {
@@ -14,9 +16,10 @@ interface TodayPlanBannerProps {
 }
 
 export function TodayPlanBanner({ activeProgram, lastCompletedAt }: TodayPlanBannerProps) {
-  const [todayPlan] = useState<ProgramDaySchedule | null>(() =>
-    getTodaysProgramDay(activeProgram.splitType)
-  );
+  const [todayPlan] = useState<ScheduleDay | null>(() => {
+    const day = activeProgram.schedule[new Date().getDay()] ?? null;
+    return day && !day.isRest ? day : null;
+  });
 
   // Start false (SSR-safe). useEffect runs only in the browser so
   // Date.getDate() uses the user's local timezone — no hydration mismatch.

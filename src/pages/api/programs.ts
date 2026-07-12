@@ -2,51 +2,52 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { trainingPrograms } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
+import { getActiveProgramWithSchedule } from "@/lib/db/programs";
 
-export const GET: APIRoute = async ({ url }) => {
-  const userId = url.searchParams.get("userId");
-  if (!userId) return new Response("Missing userId", { status: 400 });
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+
+// El atleta solo LEE su programa (lo asigna el entrenador) y avanza de semana.
+
+export const GET: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+
+  if (context.url.searchParams.get("action") === "active") {
+    const program = await getActiveProgramWithSchedule(user.id);
+    return json(program);
+  }
 
   const programs = await db
     .select()
     .from(trainingPrograms)
-    .where(eq(trainingPrograms.userId, userId))
+    .where(eq(trainingPrograms.userId, user.id))
     .orderBy(desc(trainingPrograms.createdAt));
 
-  return new Response(JSON.stringify(programs), { status: 200 });
+  return json(programs);
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  const body = await request.json();
-  const { action, ...data } = body;
+export const POST: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
-  if (action === "create") {
-    const [program] = await db.insert(trainingPrograms).values(data).returning();
-    return new Response(JSON.stringify(program), { status: 200 });
-  }
-
-  if (action === "toggle") {
-    const { programId, userId } = data;
-    await db.update(trainingPrograms).set({ active: false }).where(eq(trainingPrograms.userId, userId));
-    const [program] = await db.update(trainingPrograms).set({ active: true }).where(eq(trainingPrograms.id, programId)).returning();
-    return new Response(JSON.stringify(program), { status: 200 });
-  }
+  const { action, programId } = await context.request.json();
 
   if (action === "advance-week") {
-    const { programId } = data;
-    const [current] = await db.select().from(trainingPrograms).where(eq(trainingPrograms.id, programId));
-    if (!current) return new Response("Not found", { status: 404 });
+    const [current] = await db
+      .select()
+      .from(trainingPrograms)
+      .where(and(eq(trainingPrograms.id, programId), eq(trainingPrograms.userId, user.id)));
+    if (!current) return json({ error: "Not found" }, 404);
     const newWeek = Math.min((current.currentWeek ?? 1) + 1, current.durationWeeks ?? 12);
-    const [updated] = await db.update(trainingPrograms).set({ currentWeek: newWeek }).where(eq(trainingPrograms.id, programId)).returning();
-    return new Response(JSON.stringify(updated), { status: 200 });
+    const [updated] = await db
+      .update(trainingPrograms)
+      .set({ currentWeek: newWeek })
+      .where(eq(trainingPrograms.id, programId))
+      .returning();
+    return json(updated);
   }
 
-  return new Response("Invalid action", { status: 400 });
-};
-
-export const DELETE: APIRoute = async ({ url }) => {
-  const id = url.searchParams.get("id");
-  if (!id) return new Response("Missing id", { status: 400 });
-  await db.delete(trainingPrograms).where(eq(trainingPrograms.id, id));
-  return new Response(null, { status: 204 });
+  return json({ error: "Invalid action" }, 400);
 };

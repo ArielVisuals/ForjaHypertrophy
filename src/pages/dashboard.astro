@@ -9,34 +9,23 @@ import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { db } from "@/lib/db";
 import { workoutSessions, nutritionLogs, trainingPrograms, bodyMeasurements } from "@/lib/db/schema";
 import { eq, and, desc, isNotNull, gte, sql } from "drizzle-orm";
-import { clerkClient } from "@clerk/astro/server";
 import { TodayPlanBanner } from "@/components/dashboard/TodayPlanBanner";
 import { getWeeklyVolumeByMuscle, getWeeklyDigest, getTodayCompletedSession } from "@/lib/db/workouts";
+import { getActiveProgramWithSchedule } from "@/lib/db/programs";
 
 const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
 
-// 1. Auth & Identity
-const { userId } = Astro.locals.auth();
-let userName = "Atleta";
-let user = null;
-
-if (userId) {
-  try {
-    user = await clerkClient(Astro).users.getUser(userId);
-    userName = user.firstName || user.username || "Atleta";
-  } catch (e) {
-    console.error("Error identity:", e);
-  }
-}
+// 1. Auth & Identity — locals.user lo pobla el middleware
+const user = Astro.locals.user;
+const userId = user?.id ?? null;
+const userName = user?.displayName ?? "Atleta";
 
 // 2. Data Fetching (Parallel)
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-// Fetch Active Program
-const activeProgram = await db.query.trainingPrograms.findFirst({
-  where: and(eq(trainingPrograms.userId, userId!), eq(trainingPrograms.active, true))
-});
+// Fetch Active Program (con schedule desde DB)
+const activeProgram = userId ? await getActiveProgramWithSchedule(userId) : null;
 
 // Fetch Today's Nutrition
 const todayNutrition = await db
@@ -106,7 +95,7 @@ const lastCompletedAt = todaySessionData?.completedAt
   : null;
 ---
 
-<MainLayout title="Centro de Mando">
+<MainLayout title="Centro de Mando" description="Panel de control — volumen semanal por músculo, recuperación, progreso de fuerza y actividad reciente.">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex flex-col gap-10">
 
     <!-- Header: Grid Maestro de Bienvenida -->
@@ -177,10 +166,10 @@ const lastCompletedAt = todaySessionData?.completedAt
     {activeProgram && (
       <TodayPlanBanner
         activeProgram={{
-          name: activeProgram.name ?? "",
-          splitType: activeProgram.splitType ?? "",
-          currentWeek: activeProgram.currentWeek ?? 1,
-          durationWeeks: activeProgram.durationWeeks ?? 12,
+          name: activeProgram.name,
+          currentWeek: activeProgram.currentWeek,
+          durationWeeks: activeProgram.durationWeeks,
+          schedule: activeProgram.schedule,
         }}
         lastCompletedAt={lastCompletedAt}
         client:load
@@ -220,7 +209,7 @@ const lastCompletedAt = todaySessionData?.completedAt
     )}
 
     {/* Activity Heatmap */}
-    {userId && <ActivityHeatmap userId={userId} client:load />}
+    {userId && <ActivityHeatmap client:load />}
 
     {/* Línea Divisora Técnica */}
     <div class="flex items-center gap-4">
@@ -230,7 +219,7 @@ const lastCompletedAt = todaySessionData?.completedAt
 
     {/* Resumen de Rendimiento (Cards de Stats) */}
     <div class="w-full">
-      {userId && <DashboardStats userId={userId} initialStats={initialStats} client:load />}
+      {userId && <DashboardStats initialStats={initialStats} client:load />}
     </div>
 
     {/* Inteligencia de Módulos (Fuel & Progress & Action) */}
@@ -307,11 +296,10 @@ const lastCompletedAt = todaySessionData?.completedAt
     {userId && (
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WeeklyVolumeWidget
-          userId={userId}
           initialData={weeklyVolumeData ?? []}
           client:load
         />
-        <RecoveryInsightsWidget userId={userId} client:load />
+        <RecoveryInsightsWidget client:load />
       </div>
     )}
 
