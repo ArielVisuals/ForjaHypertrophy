@@ -43,14 +43,9 @@
   --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.15);
   --shadow-glow-orange: 0 0 20px rgba(245, 158, 11, 0.15);
 
-  /* Espaciado consistente */
-  --spacing-unit: 0.25rem;
-  --spacing-xs: calc(var(--spacing-unit) * 2);
-  --spacing-sm: calc(var(--spacing-unit) * 3);
-  --spacing-md: calc(var(--spacing-unit) * 4);
-  --spacing-lg: calc(var(--spacing-unit) * 6);
-  --spacing-xl: calc(var(--spacing-unit) * 8);
-  --spacing-2xl: calc(var(--spacing-unit) * 12);
+  /* NOTA: no definir --spacing-{sm,md,lg,xl,2xl} aqui. En Tailwind v4 esos
+     nombres colisionan con la resolucion de utilidades de tamaño (max-w-2xl,
+     max-w-md, etc.) y colapsan los contenedores a valores de espaciado. */
 
   /* Radii consistentes - Más redondeados como la referencia */
   --radius-sm: 0.625rem;
@@ -391,7 +386,6 @@
 }
 
 /* ==========================================================================
-   Clerk Legibility Fixes (Force High Contrast)
    ========================================================================== */
 
 /* 1. Forzar fondo del modal, bordes y footer */
@@ -420,7 +414,6 @@
 /* Forzar que el texto de 'Secured by' sea blanco */
 .cl-internal-4980y6, 
 .cl-internal-1dauv9w,
-.cl-footer [data-clerk-theme="dark"] p,
 .cl-footer p,
 .cl-footer span {
   color: #ffffff !important;
@@ -483,4 +476,3 @@
 }
 
 /* 8. Ocultar badges de desarrollo si es necesario */
-/* .cl-dev-badge { display: none !important; } */
