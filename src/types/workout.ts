@@ -18,7 +18,8 @@ export type MuscleGroup =
   | "shoulders"
   | "arms"
   | "core"
-  | "full_body";
+  | "full_body"
+  | "cardio";
 
 export interface WorkoutSession {
   id: string;

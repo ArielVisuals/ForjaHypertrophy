@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Exercise, MuscleGroup } from "@/types/workout";
+import { fetchExercisesCached, type CachedExercise } from "@/lib/exerciseCache";
 
 interface ExerciseSelectorProps {
   onSelectExercise: (exercise: Exercise) => void;
@@ -16,6 +17,7 @@ const muscleGroups: { value: MuscleGroup | "all"; label: string }[] = [
   { value: "shoulders", label: "Hombros" },
   { value: "arms",      label: "Brazos" },
   { value: "core",      label: "Core" },
+  { value: "cardio",    label: "Cardio" },
 ];
 
 const MUSCLE_OPTIONS = muscleGroups.filter(m => m.value !== "all") as { value: MuscleGroup; label: string }[];
@@ -25,8 +27,8 @@ export function ExerciseSelector({
   onClose,
   initialFilter = "all",
 }: ExerciseSelectorProps) {
-  const [exercises, setExercises]                 = useState<Exercise[]>([]);
-  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
+  const [exercises, setExercises]                 = useState<CachedExercise[]>([]);
+  const [filteredExercises, setFilteredExercises] = useState<CachedExercise[]>([]);
   const [selectedMuscle, setSelectedMuscle]       = useState<MuscleGroup | "all">(initialFilter);
   const [searchTerm, setSearchTerm]               = useState("");
   const [loading, setLoading]                     = useState(true);
@@ -46,8 +48,7 @@ export function ExerciseSelector({
   const loadExercises = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/exercises");
-      const data     = await response.json();
+      const data = await fetchExercisesCached();
       setExercises(data);
       setFilteredExercises(data);
     } catch (error) {
@@ -227,7 +228,7 @@ export function ExerciseSelector({
               {filteredExercises.map(ex => (
                 <button
                   key={ex.id}
-                  onClick={() => onSelectExercise(ex)}
+                  onClick={() => onSelectExercise(ex as unknown as Exercise)}
                   className="w-full p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-left hover:bg-white/5 hover:border-blue-500/30 transition-all group flex items-center justify-between"
                 >
                   <div>

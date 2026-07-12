@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 
 const SYSTEM_PROMPT = `Eres "El Arquitecto", un sistema avanzado de inteligencia artificial especializado en ingeniería biomecánica, fisiología del ejercicio y análisis cuantitativo de datos para el entrenamiento de fuerza y culturismo de alta intensidad (HIT/Mentzer/Progresión estricta). Tu función es analizar el registro de entrenamiento que el usuario acaba de completar y devolver un diagnóstico técnico, frío, preciso y con un toque de sofisticación ciberpunk/ingenieril. Tratas el cuerpo del usuario como un "chasis" o "hardware biológico" y las métricas como logs de rendimiento de un servidor bajo estrés.
 
@@ -30,6 +30,7 @@ Responde SIEMPRE en español. Mantén la respuesta concisa (máx 400 palabras). 
 export interface WorkoutExercise {
   name: string;
   muscleGroup: string;
+  notes?: string;
   sets: { weightKg: number; reps: number; rpe: number | null }[];
 }
 
@@ -41,33 +42,32 @@ export interface WorkoutAnalysisPayload {
   exercises: WorkoutExercise[];
 }
 
-export async function analyzeWorkout(payload: WorkoutAnalysisPayload): Promise<string> {
-  const apiKey = (import.meta.env?.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY) as string | undefined;
+export async function analyzeWorkout(payload: WorkoutAnalysisPayload): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    console.warn("GEMINI_API_KEY not set — skipping analysis");
-    return "Sala de control temporalmente fuera de línea. Registro guardado localmente.";
+    console.error("[Arquitecto] GROQ_API_KEY no configurada");
+    return null;
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const model = (import.meta.env?.GEMINI_MODEL ?? process.env.GEMINI_MODEL ?? "gemini-1.5-flash") as string;
+    const groq = new Groq({ apiKey });
 
-    const userContent = `REPORTE DE SESIÓN:\n${JSON.stringify(payload, null, 2)}`;
-
-    const response = await ai.models.generateContent({
-      model,
-      contents: userContent,
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        maxOutputTokens: 900,
-        temperature: 0.72,
-      },
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user",   content: `REPORTE DE SESIÓN:\n${JSON.stringify(payload, null, 2)}` },
+      ],
+      max_tokens:  900,
+      temperature: 0.72,
     });
 
-    return response.text?.trim() ?? "Sala de control temporalmente fuera de línea. Registro guardado localmente.";
-  } catch (err) {
-    console.error("Gemini analyzeWorkout error:", err);
-    return "Sala de control temporalmente fuera de línea. Registro guardado localmente.";
+    const text = completion.choices[0]?.message?.content?.trim() ?? null;
+    console.log(`[Arquitecto] OK — ${text?.length ?? 0} chars`);
+    return text;
+  } catch (err: any) {
+    console.error("[Arquitecto] Groq error:", err?.message ?? err);
+    return null;
   }
 }
