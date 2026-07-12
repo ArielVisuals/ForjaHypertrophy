@@ -1,0 +1,16 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { OnboardingForm } from "@/components/onboarding/OnboardingForm";
+
+const user = Astro.locals.user;
+
+// Si ya completo la evaluacion (o es el coach), no tiene nada que hacer aqui
+if (!user) return Astro.redirect("/");
+if (user.onboardingCompleted || user.role === "coach") return Astro.redirect("/dashboard");
+---
+
+<MainLayout title="Evaluacion Inicial" description="Cuestionario de evaluacion inicial. Tu entrenador lo usara para diseñar tu plan." showHeader={false}>
+  <div class="relative px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-16">
+    <OnboardingForm client:load />
+  </div>
+</MainLayout>
