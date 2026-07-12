@@ -1,0 +1,119 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { getAthletesOverview } from "@/lib/db/coach";
+
+// El middleware garantiza rol coach en /coach/*
+const coach = Astro.locals.user!;
+const athletes = await getAthletesOverview(coach.id);
+
+function timeAgo(date: Date | null): string {
+  if (!date) return "Nunca";
+  const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+  if (days === 0) return "Hoy";
+  if (days === 1) return "Ayer";
+  return `Hace ${days} dias`;
+}
+
+function inactivityDays(date: Date | null): number | null {
+  if (!date) return null;
+  return Math.floor((Date.now() - date.getTime()) / 86400000);
+}
+---
+
+<MainLayout title="Panel del Entrenador" description="Tus asesorados: actividad, adherencia y evaluaciones pendientes.">
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div class="space-y-1">
+        <p class="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.4em]">PANEL DEL ENTRENADOR</p>
+        <p class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-[0.95]">
+          Asesorados<span class="text-white/20"> ({athletes.length})</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.07] w-fit">
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+        <span class="text-[9px] font-black text-white/30 uppercase tracking-widest">COACH</span>
+      </div>
+    </div>
+
+    {athletes.length === 0 ? (
+      <div class="max-w-2xl mx-auto p-10 sm:p-14 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 text-center space-y-4">
+        <p class="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.4em]">SIN ASESORADOS</p>
+        <h2 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter leading-none">
+          Aun no tienes atletas asignados
+        </h2>
+        <p class="text-white/30 text-xs font-bold uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
+          Cuando un atleta cree su cuenta quedara asignado a ti automaticamente y aparecera aqui.
+        </p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {athletes.map((a) => {
+          const inactive = inactivityDays(a.lastSessionAt);
+          const needsReview = a.intakeSubmittedAt && !a.intakeReviewedAt;
+          return (
+            <a
+              href={`/coach/athletes/${a.id}`}
+              class="group p-6 rounded-[2rem] bg-[#0A0A0B] border border-white/10 hover:border-blue-500/40 transition-all space-y-5 block"
+            >
+              <!-- Identidad + alertas -->
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="text-xl font-black text-white uppercase tracking-tighter truncate group-hover:text-blue-300 transition-colors">
+                    {a.displayName ?? "Atleta"}
+                  </h3>
+                  <p class="text-[9px] font-bold text-white/25 uppercase tracking-widest truncate mt-0.5">{a.email}</p>
+                </div>
+                {needsReview && (
+                  <span class="shrink-0 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-[8px] font-black text-orange-400 uppercase tracking-widest">
+                    Evaluacion pendiente
+                  </span>
+                )}
+                {!a.intakeSubmittedAt && (
+                  <span class="shrink-0 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-[8px] font-black text-white/30 uppercase tracking-widest">
+                    Sin cuestionario
+                  </span>
+                )}
+              </div>
+
+              <!-- Programa -->
+              <div class="space-y-1.5">
+                <p class="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">Programa</p>
+                {a.activeProgram ? (
+                  <div>
+                    <p class="text-xs font-black text-white/80 uppercase tracking-tight truncate">{a.activeProgram.name}</p>
+                    <div class="flex items-center gap-2 mt-1.5">
+                      <div class="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div class="h-full bg-blue-600" style={`width: ${Math.round((a.activeProgram.currentWeek / a.activeProgram.durationWeeks) * 100)}%`}></div>
+                      </div>
+                      <span class="text-[9px] font-black text-white/40 tabular-nums">SEM {a.activeProgram.currentWeek}/{a.activeProgram.durationWeeks}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p class="text-xs font-black text-orange-400/70 uppercase tracking-tight">Sin programa asignado</p>
+                )}
+              </div>
+
+              <!-- Actividad -->
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div class="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <p class="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">Ultima sesion</p>
+                  <p class={`text-sm font-black uppercase tracking-tight mt-1 ${inactive !== null && inactive >= 4 ? "text-orange-400" : "text-white/80"}`}>
+                    {timeAgo(a.lastSessionAt)}
+                  </p>
+                </div>
+                <div class="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <p class="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">Sesiones 7D</p>
+                  <p class="text-sm font-black text-white/80 tabular-nums mt-1">{a.sessionsLast7d}</p>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    )}
+
+    <div class="h-16 md:h-0"></div>
+  </div>
+</MainLayout>
