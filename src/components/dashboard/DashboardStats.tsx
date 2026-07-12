@@ -6,7 +6,6 @@ import { useState } from "react";
 import NumberTicker from "../ui/NumberTicker";
 
 interface DashboardStatsProps {
-  userId: string;
   initialStats: {
     currentStreak: number;
     totalWorkouts: number;

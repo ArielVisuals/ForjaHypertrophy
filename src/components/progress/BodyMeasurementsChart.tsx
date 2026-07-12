@@ -41,21 +41,21 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
-interface Props { userId: string; initialData?: Measurement[] }
+interface Props { initialData?: Measurement[] }
 
-export function BodyMeasurementsChart({ userId, initialData = [] }: Props) {
+export function BodyMeasurementsChart({ initialData = [] }: Props) {
   const [data, setData] = useState<Measurement[]>(initialData);
   const [loading, setLoading] = useState(initialData.length === 0);
   const [activeMetric, setActiveMetric] = useState<Metric>("weight");
 
   useEffect(() => {
     if (initialData.length > 0) return;
-    fetch(`/api/progress?userId=${userId}`)
+    fetch("/api/progress")
       .then(r => r.json())
       .then(res => setData(res.measurements ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, []);
 
   const metric = METRICS.find(m => m.key === activeMetric)!;
 

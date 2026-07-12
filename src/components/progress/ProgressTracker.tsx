@@ -11,10 +11,6 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 type Tab = "lab" | "scan" | "prs" | "history";
 
-interface ProgressTrackerProps {
-  userId: string;
-}
-
 interface BodyMeasurement {
   id: string;
   measuredAt: string;
@@ -263,7 +259,7 @@ function BiofeedbackStrip({ label, value, onChange }: { label: string; value: nu
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ProgressTracker({ userId }: ProgressTrackerProps) {
+export function ProgressTracker() {
   const [activeTab, setActiveTab] = useState<Tab>("lab");
   const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
   const [prs, setPrs] = useState<PersonalRecord[]>([]);
@@ -286,12 +282,12 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
 
   useEffect(() => {
     loadData();
-  }, [userId]);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/progress?userId=${userId}`);
+      const response = await fetch("/api/progress");
       const result = await response.json();
       setMeasurements(result.measurements || []);
       setPrs(result.prs || []);
@@ -307,7 +303,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
     if (!formData.weightKg) return alert("El peso es obligatorio");
 
     try {
-      const payload: any = { ...formData, userId };
+      const payload: any = { ...formData };
       if (photoPreview) payload.photoUrl = photoPreview;
       const response = await fetch("/api/progress", {
         method: "POST",
@@ -353,7 +349,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
       await fetch("/api/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, weightKg: w, sleepQuality: 5, energyLevel: 5, stressLevel: 5 }),
+        body: JSON.stringify({ weightKg: w, sleepQuality: 5, energyLevel: 5, stressLevel: 5 }),
       });
       setQuickWeight("");
       setShowQuickWeight(false);
@@ -461,7 +457,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
           >
             {/* Mapa muscular de simetría */}
             <ErrorBoundary label="MAPA MUSCULAR" compact>
-              <BodySymmetryMap userId={userId} />
+              <BodySymmetryMap />
             </ErrorBoundary>
 
             {/* Navegador de checkpoints corporales */}
@@ -471,12 +467,12 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
 
             {/* Gráfica de progresión de fuerza */}
             <ErrorBoundary label="PROGRESIÓN DE FUERZA">
-              <StrengthProgressChart userId={userId} />
+              <StrengthProgressChart />
             </ErrorBoundary>
 
             {/* Evolución corporal histórica */}
             <ErrorBoundary label="EVOLUCIÓN CORPORAL" compact>
-              <BodyMeasurementsChart userId={userId} />
+              <BodyMeasurementsChart />
             </ErrorBoundary>
 
             {/* Charts de composición corporal */}
@@ -569,7 +565,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
 
             {/* Historial de entrenamientos */}
             <ErrorBoundary label="HISTORIAL" compact>
-              <WorkoutHistoryPanel userId={userId} />
+              <WorkoutHistoryPanel />
             </ErrorBoundary>
           </motion.div>
         )}
@@ -816,7 +812,7 @@ export function ProgressTracker({ userId }: ProgressTrackerProps) {
             className="space-y-6"
           >
             <ErrorBoundary label="HISTORIAL DE SESIONES">
-              <WorkoutHistoryPanel userId={userId} />
+              <WorkoutHistoryPanel />
             </ErrorBoundary>
           </motion.div>
         )}

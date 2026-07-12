@@ -10,25 +10,24 @@ interface DayData {
 }
 
 interface NutritionWeeklyChartProps {
-  userId: string;
   targetKcal?: number;
   targetProt?: number;
 }
 
 const DAY_ABBR = ["D", "L", "M", "X", "J", "V", "S"];
 
-export function NutritionWeeklyChart({ userId, targetKcal = 2800, targetProt = 200 }: NutritionWeeklyChartProps) {
+export function NutritionWeeklyChart({ targetKcal = 2800, targetProt = 200 }: NutritionWeeklyChartProps) {
   const [days, setDays] = useState<DayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"kcal" | "prot">("kcal");
 
   useEffect(() => {
-    fetch(`/api/nutrition?action=weekly&userId=${userId}`)
+    fetch("/api/nutrition?action=weekly")
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setDays(data); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, []);
 
   if (loading) return <div className="h-32 animate-pulse bg-white/[0.02] rounded-2xl" />;
   if (days.length === 0) return null;

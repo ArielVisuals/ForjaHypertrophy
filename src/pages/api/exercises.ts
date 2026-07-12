@@ -1,72 +1,43 @@
 import type { APIRoute } from "astro";
 import { getExercises, getExercisePreviousPerformance, getLastSessionSets, getExerciseTimeline, createExercise } from "@/lib/db/workouts";
+import { requireUser } from "@/lib/auth";
 
-export const POST: APIRoute = async ({ request }) => {
-  const body = await request.json();
-  const { name, muscleGroup } = body;
-  if (!name || !muscleGroup) return new Response("Missing name or muscleGroup", { status: 400 });
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+
+export const POST: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+
+  const { name, muscleGroup } = await context.request.json();
+  if (!name || !muscleGroup) return json({ error: "Missing name or muscleGroup" }, 400);
   const { data, error } = await createExercise(name, muscleGroup);
-  if (error) return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-  return new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
+  if (error) return json({ error: String(error) }, 500);
+  return json(data);
 };
 
-export const GET: APIRoute = async ({ url }) => {
-  const action = url.searchParams.get("action");
+export const GET: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
-  if (action === "history") {
-    const userId = url.searchParams.get("userId");
-    const exerciseId = url.searchParams.get("exerciseId");
-    if (!userId || !exerciseId)
-      return new Response("Missing userId or exerciseId", { status: 400 });
+  const action     = context.url.searchParams.get("action");
+  const exerciseId = context.url.searchParams.get("exerciseId");
 
-    const { data, error } = await getExercisePreviousPerformance(userId, exerciseId);
-    if (error)
-      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+  if (action === "history" || action === "last-sets" || action === "timeline") {
+    if (!exerciseId) return json({ error: "Missing exerciseId" }, 400);
 
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    const fetchers = {
+      "history":   getExercisePreviousPerformance,
+      "last-sets": getLastSessionSets,
+      "timeline":  getExerciseTimeline,
+    } as const;
 
-  if (action === "last-sets") {
-    const userId = url.searchParams.get("userId");
-    const exerciseId = url.searchParams.get("exerciseId");
-    if (!userId || !exerciseId)
-      return new Response("Missing userId or exerciseId", { status: 400 });
-
-    const { data, error } = await getLastSessionSets(userId, exerciseId);
-    if (error)
-      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  if (action === "timeline") {
-    const userId     = url.searchParams.get("userId");
-    const exerciseId = url.searchParams.get("exerciseId");
-    if (!userId || !exerciseId)
-      return new Response("Missing userId or exerciseId", { status: 400 });
-
-    const { data, error } = await getExerciseTimeline(userId, exerciseId);
-    if (error)
-      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    const { data, error } = await fetchers[action](user.id, exerciseId);
+    if (error) return json({ error: String(error) }, 500);
+    return json(data);
   }
 
   const { data, error } = await getExercises();
-  if (error)
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  if (error) return json({ error: String(error) }, 500);
+  return json(data);
 };

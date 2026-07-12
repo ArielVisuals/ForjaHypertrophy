@@ -19,11 +19,7 @@ const STATUS_CONFIG = {
   fresh:      { label: "DESCANSADO",  color: "text-emerald-400",dot: "bg-emerald-500",bar: "bg-emerald-500/60" },
 };
 
-interface RecoveryInsightsWidgetProps {
-  userId: string;
-}
-
-export function RecoveryInsightsWidget({ userId }: RecoveryInsightsWidgetProps) {
+export function RecoveryInsightsWidget() {
   const [data, setData] = useState<MuscleRecovery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -31,14 +27,14 @@ export function RecoveryInsightsWidget({ userId }: RecoveryInsightsWidgetProps) 
   const load = () => {
     setError(false);
     setLoading(true);
-    fetch(`/api/workouts?action=recovery&userId=${userId}`)
+    fetch("/api/workouts?action=recovery")
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then(setData)
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [userId]);
+  useEffect(() => { load(); }, []);
 
   if (loading) {
     return (

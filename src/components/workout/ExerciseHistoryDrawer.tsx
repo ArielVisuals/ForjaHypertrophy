@@ -15,7 +15,6 @@ interface TimelinePoint {
 }
 
 interface ExerciseHistoryDrawerProps {
-  userId: string;
   exerciseId: string;
   exerciseName: string;
   muscleGroup: string;
@@ -29,7 +28,6 @@ function fmt(date: string) {
 }
 
 export function ExerciseHistoryDrawer({
-  userId,
   exerciseId,
   exerciseName,
   muscleGroup,
@@ -42,12 +40,12 @@ export function ExerciseHistoryDrawer({
   const [view, setView] = useState<"1rm" | "vol">("1rm");
 
   useEffect(() => {
-    fetch(`/api/exercises?action=timeline&exerciseId=${exerciseId}&userId=${userId}`)
+    fetch(`/api/exercises?action=timeline&exerciseId=${exerciseId}`)
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setData(d); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [exerciseId, userId]);
+  }, [exerciseId]);
 
   const chartData = data.map(p => ({
     date:  fmt(p.date),

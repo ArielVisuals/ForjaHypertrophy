@@ -9,7 +9,6 @@ interface MuscleVolume {
 }
 
 interface BodySymmetryMapProps {
-  userId: string;
   initialData?: MuscleVolume[];
 }
 
@@ -43,7 +42,7 @@ const MUSCLE_LABELS: Record<string, string> = {
   shoulders: "HOMBROS", arms: "BRAZOS", core: "CORE",
 };
 
-export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapProps) {
+export function BodySymmetryMap({ initialData = [] }: BodySymmetryMapProps) {
   const [data, setData]       = useState<MuscleVolume[]>(initialData);
   const [loading, setLoading] = useState(initialData.length === 0);
   const [error, setError]     = useState(false);
@@ -52,7 +51,7 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
   const load = () => {
     setError(false);
     setLoading(true);
-    fetch(`/api/workouts?action=volume&userId=${userId}`)
+    fetch("/api/workouts?action=volume")
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((d: unknown) => setData(Array.isArray(d) ? d : []))
       .catch(() => setError(true))
@@ -62,7 +61,7 @@ export function BodySymmetryMap({ userId, initialData = [] }: BodySymmetryMapPro
   useEffect(() => {
     if (initialData.length > 0) return;
     load();
-  }, [userId]);
+  }, []);
 
   const dataMap: Record<string, MuscleVolume> = {};
   for (const row of data) dataMap[row.muscleGroup] = row;

@@ -14,10 +14,6 @@ interface ExerciseStrength {
   points: StrengthPoint[];
 }
 
-interface StrengthProgressChartProps {
-  userId: string;
-}
-
 function formatChartDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" }).toUpperCase();
@@ -34,7 +30,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function StrengthProgressChart({ userId }: StrengthProgressChartProps) {
+export function StrengthProgressChart() {
   const [exercises, setExercises] = useState<ExerciseStrength[]>([]);
   const [selected, setSelected]   = useState<string | null>(null);
   const [loading, setLoading]     = useState(true);
@@ -43,7 +39,7 @@ export function StrengthProgressChart({ userId }: StrengthProgressChartProps) {
   const load = () => {
     setError(false);
     setLoading(true);
-    fetch(`/api/workouts?action=strength&userId=${userId}`)
+    fetch("/api/workouts?action=strength")
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((data: ExerciseStrength[]) => {
         const sorted = [...data].sort((a, b) => b.points.length - a.points.length);
@@ -54,7 +50,7 @@ export function StrengthProgressChart({ userId }: StrengthProgressChartProps) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [userId]);
+  useEffect(() => { load(); }, []);
 
   const exercise = exercises.find(e => e.id === selected);
 

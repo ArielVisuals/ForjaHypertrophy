@@ -188,6 +188,24 @@ export async function createExercise(name: string, muscleGroup: string) {
   }
 }
 
+/**
+ * Devuelve la sesión solo si pertenece al usuario — verificación de ownership
+ * previa a cualquier lectura/mutación por sessionId que venga del cliente.
+ */
+export async function getOwnedSession(sessionId: string, userId: string) {
+  try {
+    const [session] = await db
+      .select()
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+      .limit(1);
+    return { data: session ?? null, error: null };
+  } catch (error) {
+    console.error("Error fetching owned session:", error);
+    return { data: null, error };
+  }
+}
+
 export async function getSessionSets(sessionId: string) {
   try {
     const rows = await db
@@ -514,6 +532,7 @@ export async function getWorkoutHistory(userId: string, limit = 20) {
         durationMinutes: workoutSessions.durationMinutes,
         overallRpe:      workoutSessions.overallRpe,
         notes:           workoutSessions.notes,
+        analysisSummary: workoutSessions.analysisSummary,
       })
       .from(workoutSessions)
       .where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.completed, true)))
@@ -556,7 +575,7 @@ export async function getWorkoutHistory(userId: string, limit = 20) {
       const exercises  = bySession[s.id] ?? [];
       const totalSets   = exercises.reduce((a, e) => a + e.sets, 0);
       const totalVolume = Math.round(exercises.reduce((a, e) => a + e.volume, 0));
-      return { id: s.id, name: s.name, startedAt: s.startedAt, durationMinutes: s.durationMinutes, overallRpe: s.overallRpe, notes: s.notes, totalSets, totalVolume, exercises };
+      return { id: s.id, name: s.name, startedAt: s.startedAt, durationMinutes: s.durationMinutes, overallRpe: s.overallRpe, notes: s.notes, analysisSummary: s.analysisSummary, totalSets, totalVolume, exercises };
     });
 
     return { data, error: null };
@@ -791,9 +810,11 @@ export async function saveWorkoutTemplate(
   }
 }
 
-export async function deleteWorkoutTemplate(id: string) {
+export async function deleteWorkoutTemplate(id: string, userId: string) {
   try {
-    await db.delete(workoutTemplates).where(eq(workoutTemplates.id, id));
+    await db
+      .delete(workoutTemplates)
+      .where(and(eq(workoutTemplates.id, id), eq(workoutTemplates.userId, userId)));
     return { error: null };
   } catch (error) {
     console.error("Error deleting template:", error);
@@ -808,6 +829,7 @@ export interface TodaySessionSummary {
   completedAt: Date;
   durationMinutes: number | null;
   overallRpe: number | null;
+  analysisSummary: string | null;
   exercises: {
     name: string;
     muscleGroup: string;
@@ -883,6 +905,7 @@ export async function getTodayCompletedSession(
         completedAt: session.completedAt!,
         durationMinutes: session.durationMinutes,
         overallRpe: session.overallRpe,
+        analysisSummary: session.analysisSummary ?? null,
         exercises: Array.from(exerciseMap.values()),
       },
       error: null,

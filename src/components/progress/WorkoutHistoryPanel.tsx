@@ -31,10 +31,6 @@ interface WorkoutSession {
   exercises: ExerciseGroup[];
 }
 
-interface WorkoutHistoryPanelProps {
-  userId: string;
-}
-
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
@@ -48,7 +44,7 @@ function daysAgo(dateStr: string) {
   return `HACE ${days}D`;
 }
 
-export function WorkoutHistoryPanel({ userId }: WorkoutHistoryPanelProps) {
+export function WorkoutHistoryPanel() {
   const [sessions, setSessions]         = useState<WorkoutSession[]>([]);
   const [loading, setLoading]           = useState(true);
   const [expanded, setExpanded]         = useState<string | null>(null);
@@ -57,12 +53,12 @@ export function WorkoutHistoryPanel({ userId }: WorkoutHistoryPanelProps) {
   const [deletingId, setDeletingId]     = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/workouts?action=history&userId=${userId}`)
+    fetch("/api/workouts?action=history")
       .then(r => r.json())
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, []);
 
   const deleteSession = async (sessionId: string) => {
     setDeletingId(sessionId);
@@ -88,7 +84,7 @@ export function WorkoutHistoryPanel({ userId }: WorkoutHistoryPanelProps) {
     if (!sessionSets[sessionId]) {
       setLoadingSets(sessionId);
       try {
-        const r = await fetch(`/api/workouts?action=session-sets&userId=${userId}&sessionId=${sessionId}`);
+        const r = await fetch(`/api/workouts?action=session-sets&sessionId=${sessionId}`);
         const data = await r.json();
         setSessionSets(prev => ({ ...prev, [sessionId]: data }));
       } catch {

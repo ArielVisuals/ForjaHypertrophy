@@ -8,10 +8,6 @@ interface Session {
   name: string;
 }
 
-interface ActivityHeatmapProps {
-  userId: string;
-}
-
 const DAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
 const WEEKS = 16;
 
@@ -28,7 +24,7 @@ function getMonday(d: Date) {
   return monday;
 }
 
-export function ActivityHeatmap({ userId }: ActivityHeatmapProps) {
+export function ActivityHeatmap() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -37,14 +33,14 @@ export function ActivityHeatmap({ userId }: ActivityHeatmapProps) {
   const load = () => {
     setError(false);
     setLoading(true);
-    fetch(`/api/workouts?action=history&userId=${userId}`)
+    fetch("/api/workouts?action=history")
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((data: Session[]) => setSessions(Array.isArray(data) ? data : []))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [userId]);
+  useEffect(() => { load(); }, []);
 
   // Build date → {volume, name[]} map
   const dateMap = new Map<string, { volume: number; names: string[] }>();

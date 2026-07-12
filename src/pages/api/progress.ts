@@ -2,15 +2,19 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { bodyMeasurements, workoutSets, workoutSessions, exercises } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
 
-export const GET: APIRoute = async ({ url }) => {
-  const userId = url.searchParams.get("userId");
-  if (!userId) return new Response("Missing userId", { status: 400 });
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+
+export const GET: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
   const measurements = await db
     .select()
     .from(bodyMeasurements)
-    .where(eq(bodyMeasurements.userId, userId))
+    .where(eq(bodyMeasurements.userId, user.id))
     .orderBy(desc(bodyMeasurements.measuredAt));
 
   // All completed sets ordered by weight desc — group client-side for one PR per exercise
@@ -24,7 +28,7 @@ export const GET: APIRoute = async ({ url }) => {
     .from(workoutSets)
     .innerJoin(workoutSessions, eq(workoutSets.workoutSessionId, workoutSessions.id))
     .innerJoin(exercises, eq(workoutSets.exerciseId, exercises.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutSets.completed, true)))
+    .where(and(eq(workoutSessions.userId, user.id), eq(workoutSets.completed, true)))
     .orderBy(desc(workoutSets.weightKg));
 
   // One record per exercise: highest weight set
@@ -41,11 +45,18 @@ export const GET: APIRoute = async ({ url }) => {
   }
   const prs = Array.from(seen.values());
 
-  return new Response(JSON.stringify({ measurements, prs }), { status: 200 });
+  return json({ measurements, prs });
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  const body = await request.json();
-  const [data] = await db.insert(bodyMeasurements).values(body).returning();
-  return new Response(JSON.stringify(data), { status: 200 });
+export const POST: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+
+  // userId siempre viene de la sesión, nunca del cliente
+  const { userId: _ignored, ...fields } = await context.request.json();
+  const [data] = await db
+    .insert(bodyMeasurements)
+    .values({ ...fields, userId: user.id })
+    .returning();
+  return json(data);
 };

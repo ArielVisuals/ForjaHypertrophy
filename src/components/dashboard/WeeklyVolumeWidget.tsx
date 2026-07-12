@@ -9,7 +9,6 @@ interface MuscleVolume {
 }
 
 interface WeeklyVolumeWidgetProps {
-  userId: string;
   initialData?: MuscleVolume[];
 }
 
@@ -44,18 +43,18 @@ function recoveryLabel(days: number | null): { text: string; color: string } {
   return               { text: `${days}d`,          color: "text-red-400" };
 }
 
-export function WeeklyVolumeWidget({ userId, initialData = [] }: WeeklyVolumeWidgetProps) {
+export function WeeklyVolumeWidget({ initialData = [] }: WeeklyVolumeWidgetProps) {
   const [data, setData] = useState<MuscleVolume[]>(initialData);
   const [loading, setLoading] = useState(initialData.length === 0);
 
   useEffect(() => {
     if (initialData.length > 0) return;
-    fetch(`/api/workouts?action=volume&userId=${userId}`)
+    fetch("/api/workouts?action=volume")
       .then(r => r.json())
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, []);
 
   // Construir mapa de datos por músculo
   const dataMap: Record<string, MuscleVolume> = {};
