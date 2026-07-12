@@ -2,42 +2,21 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { nutritionLogs, nutritionTargets, nutritionStaples } from "@/lib/db/schema";
 import { eq, and, gte, lt, desc } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
+import { getWeeklyNutritionSummary } from "@/lib/db/nutrition";
+import { getActiveMealPlan, getPlanMealForUser } from "@/lib/db/mealPlans";
 
-export const GET: APIRoute = async ({ url }) => {
-  const userId = url.searchParams.get("userId");
-  if (!userId) return new Response("Missing userId", { status: 400 });
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+
+export const GET: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+  const { url } = context;
 
   // Weekly summary: last 7 days grouped by date
   if (url.searchParams.get("action") === "weekly") {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const logs = await db
-      .select()
-      .from(nutritionLogs)
-      .where(and(eq(nutritionLogs.userId, userId), gte(nutritionLogs.loggedAt, sevenDaysAgo)))
-      .orderBy(desc(nutritionLogs.loggedAt));
-
-    const byDate: Record<string, { kcal: number; prot: number; carbs: number; fats: number }> = {};
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      byDate[key] = { kcal: 0, prot: 0, carbs: 0, fats: 0 };
-    }
-    for (const log of logs) {
-      const d   = new Date(log.loggedAt as Date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      if (byDate[key]) {
-        byDate[key].kcal  += Number(log.calories);
-        byDate[key].prot  += Number(log.proteinG ?? 0);
-        byDate[key].carbs += Number(log.carbsG   ?? 0);
-        byDate[key].fats  += Number(log.fatsG    ?? 0);
-      }
-    }
-    const result = Object.entries(byDate).map(([date, totals]) => ({ date, ...totals }));
-    return new Response(JSON.stringify(result), { status: 200 });
+    return json(await getWeeklyNutritionSummary(user.id));
   }
 
   // Use client-supplied local date + tz offset so "today" means the user's calendar day,
@@ -56,11 +35,11 @@ export const GET: APIRoute = async ({ url }) => {
     todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
   }
 
-  const [logs, targetsRows, staples] = await Promise.all([
+  const [logs, targetsRows, staples, plan] = await Promise.all([
     db.select()
       .from(nutritionLogs)
       .where(and(
-        eq(nutritionLogs.userId, userId),
+        eq(nutritionLogs.userId, user.id),
         gte(nutritionLogs.loggedAt, todayStart),
         lt(nutritionLogs.loggedAt, todayEnd),
       ))
@@ -68,57 +47,94 @@ export const GET: APIRoute = async ({ url }) => {
 
     db.select()
       .from(nutritionTargets)
-      .where(and(eq(nutritionTargets.userId, userId), eq(nutritionTargets.active, true)))
+      .where(and(eq(nutritionTargets.userId, user.id), eq(nutritionTargets.active, true)))
       .limit(1),
 
     db.select()
       .from(nutritionStaples)
-      .where(eq(nutritionStaples.userId, userId))
+      .where(eq(nutritionStaples.userId, user.id))
       .orderBy(desc(nutritionStaples.createdAt)),
+
+    getActiveMealPlan(user.id),
   ]);
 
-  return new Response(
-    JSON.stringify({ logs, targets: targetsRows[0] ?? null, staples }),
-    { status: 200 }
-  );
+  return json({ logs, targets: targetsRows[0] ?? null, staples, plan });
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  const body = await request.json();
+export const POST: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+
+  const body = await context.request.json();
 
   if (body.action === "update-targets") {
-    const { userId, calories, proteinG, carbsG, fatsG } = body;
-    await db.update(nutritionTargets).set({ active: false }).where(eq(nutritionTargets.userId, userId));
+    // Con plan alimenticio activo, las metas las define el entrenador
+    const activePlan = await getActiveMealPlan(user.id);
+    if (activePlan) {
+      return json({ error: "Tus metas las define el plan de tu entrenador" }, 409);
+    }
+    const { calories, proteinG, carbsG, fatsG } = body;
+    await db.update(nutritionTargets).set({ active: false }).where(eq(nutritionTargets.userId, user.id));
     const [data] = await db
       .insert(nutritionTargets)
-      .values({ userId, calories, proteinG, carbsG, fatsG, active: true })
+      .values({ userId: user.id, calories, proteinG, carbsG, fatsG, active: true })
       .returning();
-    return new Response(JSON.stringify(data), { status: 200 });
+    return json(data);
   }
 
   if (body.action === "add-staple") {
-    const { userId, name, calories, proteinG, carbsG, fatsG } = body;
+    const { name, calories, proteinG, carbsG, fatsG } = body;
     const [data] = await db
       .insert(nutritionStaples)
-      .values({ userId, name, calories: calories.toString(), proteinG: proteinG.toString(), carbsG: carbsG.toString(), fatsG: fatsG.toString() })
+      .values({ userId: user.id, name, calories: calories.toString(), proteinG: proteinG.toString(), carbsG: carbsG.toString(), fatsG: fatsG.toString() })
       .returning();
-    return new Response(JSON.stringify(data), { status: 200 });
+    return json(data);
   }
 
-  const [data] = await db.insert(nutritionLogs).values(body).returning();
-  return new Response(JSON.stringify(data), { status: 200 });
+  if (body.action === "log-plan-meal") {
+    const meal = await getPlanMealForUser(body.mealPlanMealId, user.id);
+    if (!meal) return json({ error: "Comida fuera de tu plan activo" }, 404);
+    const [data] = await db
+      .insert(nutritionLogs)
+      .values({
+        userId: user.id,
+        mealName: meal.name,
+        calories: meal.calories,
+        proteinG: meal.proteinG,
+        carbsG: meal.carbsG,
+        fatsG: meal.fatsG,
+        mealPlanMealId: meal.id,
+      })
+      .returning();
+    return json(data);
+  }
+
+  const { mealName, calories, proteinG, carbsG, fatsG } = body;
+  if (!mealName || calories == null) return json({ error: "Missing mealName or calories" }, 400);
+  const [data] = await db
+    .insert(nutritionLogs)
+    .values({ userId: user.id, mealName, calories, proteinG, carbsG, fatsG })
+    .returning();
+  return json(data);
 };
 
-export const DELETE: APIRoute = async ({ url }) => {
-  const id    = url.searchParams.get("id");
-  const stapleId = url.searchParams.get("stapleId");
+export const DELETE: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
+
+  const id       = context.url.searchParams.get("id");
+  const stapleId = context.url.searchParams.get("stapleId");
 
   if (stapleId) {
-    await db.delete(nutritionStaples).where(eq(nutritionStaples.id, stapleId));
+    await db
+      .delete(nutritionStaples)
+      .where(and(eq(nutritionStaples.id, stapleId), eq(nutritionStaples.userId, user.id)));
     return new Response(null, { status: 204 });
   }
 
-  if (!id) return new Response("Missing id", { status: 400 });
-  await db.delete(nutritionLogs).where(eq(nutritionLogs.id, id));
+  if (!id) return json({ error: "Missing id" }, 400);
+  await db
+    .delete(nutritionLogs)
+    .where(and(eq(nutritionLogs.id, id), eq(nutritionLogs.userId, user.id)));
   return new Response(null, { status: 204 });
 };

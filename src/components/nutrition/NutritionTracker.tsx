@@ -2,10 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import NumberTicker from "../ui/NumberTicker";
 import { NutritionWeeklyChart } from "./NutritionWeeklyChart";
-
-interface NutritionTrackerProps {
-  userId: string;
-}
+import { MEAL_SLOT_LABELS } from "../../lib/constants/nutrition";
 
 interface NutritionLog {
   id: string;
@@ -14,7 +11,28 @@ interface NutritionLog {
   proteinG: number;
   carbsG: number;
   fatsG: number;
+  mealPlanMealId: string | null;
   loggedAt: string;
+}
+
+interface PlanMeal {
+  id: string;
+  slot: string;
+  name: string;
+  description: string | null;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatsG: number;
+}
+
+interface MealPlan {
+  id: string;
+  name: string;
+  notes: string | null;
+  calories: number;
+  proteinG: number;
+  meals: PlanMeal[];
 }
 
 interface NutritionTargets {
@@ -54,8 +72,10 @@ const DEFAULT_STAPLES: NutritionStaple[] = [
   { id: "s4", name: "AVENA NOCT",   calories: 500, proteinG: 25, carbsG: 75, fatsG: 8 },
 ];
 
-export function NutritionTracker({ userId }: NutritionTrackerProps) {
+export function NutritionTracker() {
   const [logs, setLogs] = useState<NutritionLog[]>([]);
+  const [plan, setPlan] = useState<MealPlan | null>(null);
+  const [loggingMealId, setLoggingMealId] = useState<string | null>(null);
   const [targets, setTargets] = useState<NutritionTargets>(DEFAULT_TARGETS);
   const [staples, setStaples] = useState<NutritionStaple[]>(DEFAULT_STAPLES);
   const [loading, setLoading] = useState(true);
@@ -85,17 +105,18 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
 
   useEffect(() => {
     loadNutritionData();
-  }, [userId]);
+  }, []);
 
   const loadNutritionData = async () => {
     setLoading(true);
     try {
       const localDate = new Date().toLocaleDateString("sv"); // "YYYY-MM-DD" locale-independent
       const tzOffset  = new Date().getTimezoneOffset();      // minutes behind UTC
-      const response = await fetch(`/api/nutrition?userId=${userId}&date=${localDate}&tzOffset=${tzOffset}`);
+      const response = await fetch(`/api/nutrition?date=${localDate}&tzOffset=${tzOffset}`);
       const data = await response.json();
 
       setLogs(data.logs ?? []);
+      setPlan(data.plan ?? null);
 
       if (data.targets) {
         setTargets({
@@ -138,7 +159,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
   const addMeal = async () => {
     if (!formData.name || !formData.kcal) return alert("Nombre y Calorías requeridos");
     const payload = {
-      userId,
       mealName:  formData.name,
       calories:  parseFloat(formData.kcal),
       proteinG:  parseFloat(formData.prot)  || 0,
@@ -158,7 +178,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action:   "add-staple",
-              userId,
               name:     formData.name,
               calories: payload.calories,
               proteinG: payload.proteinG,
@@ -184,7 +203,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           mealName:  s.name,
           calories:  s.calories,
           proteinG:  s.proteinG,
@@ -258,7 +276,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           mealName:  selectedFood.name.toUpperCase(),
           calories:  portionMacros.kcal,
           proteinG:  portionMacros.prot,
@@ -284,7 +301,7 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
       await fetch("/api/nutrition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update-targets", userId, ...targetDraft }),
+        body: JSON.stringify({ action: "update-targets", ...targetDraft }),
       });
       setTargets(targetDraft);
       setEditingTargets(false);
@@ -303,7 +320,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action:   "add-staple",
-          userId,
           name:     selectedFood.name.toUpperCase().slice(0, 40),
           calories: portionMacros.kcal,
           proteinG: portionMacros.prot,
@@ -344,6 +360,22 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
     setShowAddForm(true);
   };
 
+  const logPlanMeal = async (mealId: string) => {
+    setLoggingMealId(mealId);
+    try {
+      const res = await fetch("/api/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "log-plan-meal", mealPlanMealId: mealId }),
+      });
+      if (res.ok) loadNutritionData();
+    } finally {
+      setLoggingMealId(null);
+    }
+  };
+
+  const loggedPlanMealIds = new Set(logs.map(l => l.mealPlanMealId).filter(Boolean));
+
   if (loading)
     return (
       <div className="text-white/20 font-black uppercase tracking-[0.3em] py-20 text-center text-xs">
@@ -354,10 +386,68 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
   return (
     <div className="space-y-10">
 
+      {/* ── 0. PLAN DEL DIA — asignado por el entrenador ── */}
+      {plan && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">TU PLAN DE HOY</h2>
+            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+              {loggedPlanMealIds.size}/{plan.meals.length} COMIDAS
+            </span>
+          </div>
+
+          <div className="p-6 sm:p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+              <p className="text-lg font-black text-white uppercase tracking-tighter">{plan.name}</p>
+              <p className="text-[9px] font-black text-white/25 uppercase tracking-widest">Asignado por tu entrenador</p>
+            </div>
+            {plan.notes && (
+              <p className="text-[10px] font-bold text-white/35 uppercase tracking-wider leading-relaxed">{plan.notes}</p>
+            )}
+
+            <ul className="divide-y divide-white/[0.05]">
+              {plan.meals.map(meal => {
+                const logged = loggedPlanMealIds.has(meal.id);
+                return (
+                  <li key={meal.id} className="py-3.5 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black text-orange-400/60 uppercase tracking-[0.3em]">
+                        {MEAL_SLOT_LABELS[meal.slot] ?? meal.slot}
+                      </p>
+                      <p className={`text-sm font-black uppercase tracking-tight truncate mt-0.5 ${logged ? "text-white/30 line-through" : "text-white"}`}>
+                        {meal.name}
+                      </p>
+                      <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
+                        {Math.round(meal.calories)} KCAL | {Math.round(meal.proteinG)}G P | {Math.round(meal.carbsG)}G C | {Math.round(meal.fatsG)}G F
+                      </p>
+                      {meal.description && !logged && (
+                        <p className="text-[9px] font-bold text-white/20 tracking-wide mt-1 leading-relaxed">{meal.description}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => logPlanMeal(meal.id)}
+                      disabled={logged || loggingMealId === meal.id}
+                      className={`shrink-0 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                        logged
+                          ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-400"
+                          : "bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/40 disabled:opacity-50"
+                      }`}
+                    >
+                      {logged ? "Registrada" : loggingMealId === meal.id ? "..." : "Registrar"}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* ── 1. AÑADIR COMBUSTIBLE — lo más importante, va primero ── */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">AÑADIR COMBUSTIBLE</h2>
+          <h2 className="text-xs font-black text-white/30 uppercase tracking-[0.4em]">{plan ? "REGISTRO LIBRE — FUERA DEL PLAN" : "AÑADIR COMBUSTIBLE"}</h2>
         </div>
 
         {!showAddForm ? (
@@ -687,7 +777,6 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
       <div className="space-y-8">
         <div className="p-6 sm:p-8 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10">
           <NutritionWeeklyChart
-            userId={userId}
             targetKcal={targets.calories}
             targetProt={targets.proteinG}
           />
@@ -725,6 +814,11 @@ export function NutritionTracker({ userId }: NutritionTrackerProps) {
                     <div className="min-w-0">
                       <h4 className="text-sm font-black text-white uppercase tracking-widest truncate">
                         {log.mealName}
+                        {plan && !log.mealPlanMealId && (
+                          <span className="ml-2 px-2 py-0.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-[7px] font-black text-orange-400 uppercase tracking-widest align-middle">
+                            Fuera del plan
+                          </span>
+                        )}
                       </h4>
                       <p className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-widest mt-1">
                         {Math.round(Number(log.calories))} KCAL

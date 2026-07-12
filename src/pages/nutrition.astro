@@ -2,10 +2,10 @@
 import MainLayout from "@/layouts/MainLayout.astro";
 import { NutritionTracker } from "@/components/nutrition/NutritionTracker";
 
-const { userId } = Astro.locals.auth();
+const userId = Astro.locals.user?.id ?? null;
 ---
 
-<MainLayout title="Fuel Lab">
+<MainLayout title="Fuel Lab" description="Seguimiento nutricional — calorías, proteínas, carbohidratos y grasas diarias para optimizar la hipertrofia.">
   <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
 
     <!-- Header -->
@@ -22,7 +22,7 @@ const { userId } = Astro.locals.auth();
       </div>
     </div>
 
-    {userId && <NutritionTracker userId={userId} client:load />}
+    {userId && <NutritionTracker client:load />}
     <div class="h-16 md:h-0"></div>
   </div>
 </MainLayout>

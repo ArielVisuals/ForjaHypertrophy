@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 interface SettingsPanelProps {
   userId: string;
   initialTargets?: { calories: number; proteinG: number; carbsG: number; fatsG: number } | null;
+  /** Nombre del plan alimenticio activo; si existe, las metas las define el coach */
+  lockedByPlan?: string | null;
 }
 
 type Goal = "bulk" | "cut" | "maintain" | "recomp";
@@ -31,7 +33,7 @@ function calcTDEE(weightKg: number, heightCm: number, age: number, isMale: boole
   return Math.round(bmr * activityMultiplier);
 }
 
-export function SettingsPanel({ userId, initialTargets }: SettingsPanelProps) {
+export function SettingsPanel({ userId, initialTargets, lockedByPlan }: SettingsPanelProps) {
   const [weightKg, setWeightKg]   = useState(80);
   const [heightCm, setHeightCm]   = useState(175);
   const [age, setAge]             = useState(25);
@@ -74,7 +76,6 @@ export function SettingsPanel({ userId, initialTargets }: SettingsPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update-targets",
-          userId,
           calories,
           proteinG: protein,
           carbsG:   carbs,
@@ -203,18 +204,29 @@ export function SettingsPanel({ userId, initialTargets }: SettingsPanelProps) {
           Proteína: {goalCfg.proteinMod}g/kg · {goalCfg.kcalMod >= 0 ? "+" : ""}{goalCfg.kcalMod} KCAL vs TDEE
         </p>
 
-        <motion.button
-          onClick={saveSettings}
-          disabled={saving}
-          whileTap={{ scale: 0.97 }}
-          className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.25em] text-[11px] transition-all ${
-            saved
-              ? "bg-emerald-600 text-white"
-              : "bg-blue-600 text-white hover:bg-blue-500 shadow-2xl shadow-blue-600/25"
-          } disabled:opacity-50`}
-        >
-          {saved ? "¡Objetivos Guardados!" : saving ? "Guardando..." : "Aplicar Objetivos al Plan de Nutrición"}
-        </motion.button>
+        {lockedByPlan ? (
+          <div className="p-5 rounded-2xl bg-blue-600/[0.08] border border-blue-500/20 space-y-1">
+            <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">
+              Tus metas las define tu entrenador
+            </p>
+            <p className="text-[9px] font-bold text-white/35 uppercase tracking-wider leading-relaxed">
+              Estan sincronizadas con tu plan alimenticio ({lockedByPlan}). La calculadora queda como referencia; si crees que tus metas deben cambiar, habla con tu coach.
+            </p>
+          </div>
+        ) : (
+          <motion.button
+            onClick={saveSettings}
+            disabled={saving}
+            whileTap={{ scale: 0.97 }}
+            className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.25em] text-[11px] transition-all ${
+              saved
+                ? "bg-emerald-600 text-white"
+                : "bg-blue-600 text-white hover:bg-blue-500 shadow-2xl shadow-blue-600/25"
+            } disabled:opacity-50`}
+          >
+            {saved ? "¡Objetivos Guardados!" : saving ? "Guardando..." : "Aplicar Objetivos al Plan de Nutrición"}
+          </motion.button>
+        )}
       </div>
     </div>
   );
