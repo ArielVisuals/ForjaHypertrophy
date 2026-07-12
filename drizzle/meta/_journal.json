@@ -43,6 +43,13 @@
       "when": 1783752856277,
       "tag": "0005_peaceful_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783821418078,
+      "tag": "0006_open_the_renegades",
+      "breakpoints": true
     }
   ]
 }

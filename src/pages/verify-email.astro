@@ -1,0 +1,62 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { consumeEmailToken } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+
+const token = Astro.url.searchParams.get("token");
+let verified = false;
+
+if (token) {
+  const userId = await consumeEmailToken(token, "verify_email");
+  if (userId) {
+    await db
+      .update(users)
+      .set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    verified = true;
+  }
+}
+---
+
+<MainLayout title="Verificacion de correo" description="Confirmacion de correo de tu cuenta FORJA." showHeader={false}>
+  <div class="relative min-h-[80vh] flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md text-center space-y-6">
+      <a href="/" class="inline-flex items-center justify-center gap-3">
+        <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" class="h-10 w-auto" />
+        <span class="text-2xl font-extrabold text-white tracking-tighter">FORJA</span>
+      </a>
+
+      <div class="p-10 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 space-y-4">
+        {verified ? (
+          <>
+            <p class="text-[9px] font-black text-emerald-400/70 uppercase tracking-[0.4em]">LISTO</p>
+            <h1 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter leading-none">
+              Correo verificado
+            </h1>
+            <p class="text-white/30 text-xs font-bold uppercase tracking-widest leading-relaxed">
+              Tu cuenta quedo confirmada.
+            </p>
+            <a href="/dashboard" class="inline-block mt-2 px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] bg-blue-600 text-white hover:bg-blue-500 transition-all">
+              Ir a mi panel
+            </a>
+          </>
+        ) : (
+          <>
+            <p class="text-[9px] font-black text-orange-400/70 uppercase tracking-[0.4em]">ENLACE INVALIDO</p>
+            <h1 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter leading-none">
+              Este enlace expiro o ya fue usado
+            </h1>
+            <p class="text-white/30 text-xs font-bold uppercase tracking-widest leading-relaxed">
+              Puedes pedir uno nuevo desde tu panel.
+            </p>
+            <a href="/dashboard" class="inline-block mt-2 px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] bg-white/[0.05] border border-white/[0.1] text-white/60 hover:text-white transition-all">
+              Volver
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+</MainLayout>

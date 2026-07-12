@@ -3,7 +3,8 @@ import { z } from "zod";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { hashPassword, issueSession } from "@/lib/auth";
+import { hashPassword, issueSession, createEmailToken } from "@/lib/auth";
+import { sendEmail, verificationEmail } from "@/lib/email";
 import { isRateLimited } from "@/lib/rateLimit";
 import { timingSafeEqual } from "node:crypto";
 
@@ -80,5 +81,16 @@ export const POST: APIRoute = async (context) => {
   }
 
   await issueSession(context, user.id);
+
+  // Verificacion de correo: best-effort, no bloquea el registro
+  try {
+    const token = await createEmailToken(user.id, "verify_email", 60 * 24);
+    const verifyUrl = `${context.url.origin}/verify-email?token=${token}`;
+    const { subject, html } = verificationEmail(verifyUrl);
+    await sendEmail(email, subject, html);
+  } catch (err) {
+    console.error("[register] No se pudo enviar verificacion:", err);
+  }
+
   return json({ ok: true, redirect: asCoach ? "/coach" : "/onboarding" });
 };

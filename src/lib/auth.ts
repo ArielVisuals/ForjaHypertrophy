@@ -18,7 +18,7 @@ import { hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
 import { createHash, randomBytes } from "node:crypto";
 import { eq, and, isNull, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, sessions } from "@/lib/db/schema";
+import { users, sessions, emailTokens } from "@/lib/db/schema";
 
 export type AppUser = typeof users.$inferSelect;
 
@@ -176,6 +176,54 @@ export async function getSessionUser(context: APIContext): Promise<AppUser | nul
   setAuthCookies(context, await signAccessToken(user.id));
   context.locals.user = user;
   return user;
+}
+
+// ─── Tokens de correo (verificacion / reset) ─────────────────────────────────
+
+export type EmailTokenPurpose = "verify_email" | "reset_password";
+
+/** Crea un token de un solo uso y devuelve su valor en claro (para el enlace). */
+export async function createEmailToken(
+  userId: string,
+  purpose: EmailTokenPurpose,
+  ttlMinutes: number
+): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  await db.insert(emailTokens).values({
+    userId,
+    tokenHash: sha256(token),
+    purpose,
+    expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+  });
+  return token;
+}
+
+/**
+ * Consume un token (lo marca usado) y devuelve el userId, o null si es
+ * invalido, expirado o ya usado.
+ */
+export async function consumeEmailToken(token: string, purpose: EmailTokenPurpose): Promise<string | null> {
+  const [row] = await db
+    .update(emailTokens)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(emailTokens.tokenHash, sha256(token)),
+        eq(emailTokens.purpose, purpose),
+        isNull(emailTokens.usedAt),
+        gt(emailTokens.expiresAt, new Date())
+      )
+    )
+    .returning({ userId: emailTokens.userId });
+  return row?.userId ?? null;
+}
+
+/** Revoca TODAS las sesiones de un usuario (tras un cambio de contraseña). */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
 }
 
 // ─── Guards para API routes ───────────────────────────────────────────────────

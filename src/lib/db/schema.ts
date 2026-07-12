@@ -10,8 +10,23 @@ export const users = pgTable("users", {
   coachId: text("coach_id").references((): AnyPgColumn => users.id), // null para coaches
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   passwordHash: text("password_hash"), // argon2id; null = cuenta migrada sin contraseña aun
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Tokens de un solo uso enviados por correo (verificacion y reset de contraseña).
+// Solo se guarda el hash sha256; el token real viaja en el enlace del correo.
+export const emailTokens = pgTable("email_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  purpose: text("purpose").notNull(), // 'verify_email' | 'reset_password'
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Sesiones de auth propia: el refresh token viaja opaco en cookie httpOnly

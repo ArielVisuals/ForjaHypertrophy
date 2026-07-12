@@ -187,6 +187,11 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           <>Primera vez en Forja? <a href="/register" className="text-blue-400/80 hover:text-blue-300 transition-colors">Crea tu cuenta</a></>
         )}
       </p>
+      {!isRegister && (
+        <p className="text-center text-[9px] font-bold text-white/25 uppercase tracking-widest">
+          <a href="/forgot-password" className="hover:text-white/50 transition-colors">Olvidaste tu contraseña?</a>
+        </p>
+      )}
     </form>
   );
 }

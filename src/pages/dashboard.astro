@@ -17,6 +17,7 @@ const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_
 
 // 1. Auth & Identity — locals.user lo pobla el middleware
 const user = Astro.locals.user;
+const needsEmailVerification = !!user && !user.emailVerifiedAt && !!user.email;
 const userId = user?.id ?? null;
 const userName = user?.displayName ?? "Atleta";
 
@@ -97,6 +98,29 @@ const lastCompletedAt = todaySessionData?.completedAt
 
 <MainLayout title="Centro de Mando" description="Panel de control — volumen semanal por músculo, recuperación, progreso de fuerza y actividad reciente.">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex flex-col gap-10">
+
+    {needsEmailVerification && (
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 rounded-2xl bg-orange-500/[0.07] border border-orange-500/20">
+        <p class="text-[10px] font-black text-orange-300/90 uppercase tracking-widest">
+          Verifica tu correo para asegurar tu cuenta
+        </p>
+        <button
+          id="resend-verification"
+          class="shrink-0 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 transition-all"
+        >
+          Reenviar correo
+        </button>
+      </div>
+      <script>
+        document.getElementById("resend-verification")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget as HTMLButtonElement;
+          btn.disabled = true;
+          btn.textContent = "Enviando...";
+          const res = await fetch("/api/auth/resend-verification", { method: "POST" }).catch(() => null);
+          btn.textContent = res?.ok ? "Correo enviado" : "No se pudo enviar";
+        });
+      </script>
+    )}
 
     <!-- Header: Grid Maestro de Bienvenida -->
     <div>
