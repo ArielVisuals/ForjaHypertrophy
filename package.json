@@ -10,17 +10,19 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",
+    "coach:set": "node --env-file=.env scripts/set-coach.mjs",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "db:seed": "tsx scripts/seed-master-programs.ts",
+    "auth:set-password": "node --env-file=.env scripts/set-password.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",
     "@astrojs/react": "^4.4.2",
     "@astrojs/vercel": "^9.0.5",
-    "@clerk/astro": "^3.2.0",
-    "@clerk/themes": "^2.4.57",
     "@google/genai": "^2.6.0",
     "@hookform/resolvers": "^5.2.2",
+    "@node-rs/argon2": "^2.0.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-select": "^2.2.6",
@@ -34,6 +36,8 @@
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.23.24",
+    "groq-sdk": "^1.2.1",
+    "jose": "^6.2.3",
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -52,6 +56,7 @@
     "drizzle-kit": "^0.31.10",
     "happy-dom": "^20.0.10",
     "sharp": "^0.34.5",
+    "tsx": "^4.23.0",
     "vitest": "^4.0.13"
   }
 }

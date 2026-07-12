@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SignOutButton } from "@clerk/astro/react";
+import { signOut } from "@/lib/signOut";
 
 interface MobileMenuProps {
   currentPath: string;
-  user: any;
+  user: { displayName: string | null; email: string | null } | null;
   isSignedIn: boolean;
 }
 
@@ -134,19 +134,15 @@ export function MobileMenu({ currentPath, user, isSignedIn }: MobileMenuProps) {
               <div className="px-6 pt-4 pb-10 space-y-5">
                 {/* User card */}
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                  {user?.imageUrl && (
-                    <img
-                      src={user.imageUrl}
-                      alt=""
-                      className="w-11 h-11 rounded-full border border-white/15 shrink-0"
-                    />
-                  )}
+                  <div className="w-11 h-11 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center font-black text-blue-200 shrink-0">
+                    {(user?.displayName || "A").charAt(0).toUpperCase()}
+                  </div>
                   <div className="min-w-0">
                     <p className="text-sm font-black text-white truncate">
-                      {user?.firstName || user?.username || "Atleta"}
+                      {user?.displayName || "Atleta"}
                     </p>
                     <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest truncate mt-0.5">
-                      {user?.primaryEmailAddress?.emailAddress}
+                      {user?.email}
                     </p>
                   </div>
                 </div>
@@ -177,8 +173,7 @@ export function MobileMenu({ currentPath, user, isSignedIn }: MobileMenuProps) {
                 <div className="h-px bg-white/[0.06]" />
 
                 {/* Sign out */}
-                <SignOutButton redirectUrl="/">
-                  <button className="flex items-center gap-4 w-full px-4 py-3.5 rounded-2xl bg-red-500/[0.06] border border-red-500/15 text-red-400 hover:bg-red-500/10 hover:border-red-500/25 transition-all active:scale-[0.98]">
+                  <button onClick={signOut} className="flex items-center gap-4 w-full px-4 py-3.5 rounded-2xl bg-red-500/[0.06] border border-red-500/15 text-red-400 hover:bg-red-500/10 hover:border-red-500/25 transition-all active:scale-[0.98]">
                     <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -186,7 +181,6 @@ export function MobileMenu({ currentPath, user, isSignedIn }: MobileMenuProps) {
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-[0.2em]">Cerrar Sesión</span>
                   </button>
-                </SignOutButton>
               </div>
             </motion.div>
           </>

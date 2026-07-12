@@ -1,0 +1,30 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { AuthForm } from "@/components/auth/AuthForm";
+
+// El middleware redirige al dashboard si ya hay sesion
+---
+
+<MainLayout title="Crear Cuenta" description="Crea tu cuenta de FORJA y empieza tu asesoria." showHeader={false}>
+  <div class="relative min-h-[80vh] flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md space-y-8">
+
+      <div class="text-center space-y-2">
+        <a href="/" class="inline-flex items-center justify-center gap-3 mb-4">
+          <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" class="h-10 w-auto" />
+          <span class="text-2xl font-extrabold text-white tracking-tighter">FORJA</span>
+        </a>
+        <h1 class="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none">
+          Empieza<span class="text-white/20"> tu forja</span>
+        </h1>
+        <p class="text-white/30 text-xs font-bold uppercase tracking-widest pt-1">
+          Tu entrenador te espera del otro lado
+        </p>
+      </div>
+
+      <div class="p-6 sm:p-10 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10">
+        <AuthForm mode="register" client:load />
+      </div>
+    </div>
+  </div>
+</MainLayout>

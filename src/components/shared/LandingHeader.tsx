@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SignInButton, SignUpButton, SignOutButton } from "@clerk/astro/react";
+import { signOut } from "@/lib/signOut";
 
 interface LandingHeaderProps {
-  user: any;
   isSignedIn: boolean;
 }
 
-export const LandingHeader = ({ user, isSignedIn }: LandingHeaderProps) => {
+export const LandingHeader = ({ isSignedIn }: LandingHeaderProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -28,7 +27,7 @@ export const LandingHeader = ({ user, isSignedIn }: LandingHeaderProps) => {
           <div className={`flex items-center h-full px-[clamp(1.5rem,4vw,2.5rem)] ${isExpanded ? 'justify-between' : 'justify-center'}`}>
             <motion.div layout className="flex items-center gap-3 shrink-0">
               <a href="/" className="flex items-center gap-3 min-h-[44px]">
-                <img src="/isotipo.png" alt="FORJA" className="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
+                <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" className="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[clamp(1rem,2vw,1.25rem)] font-extrabold text-white tracking-tighter">FORJA</motion.span>
@@ -54,28 +53,22 @@ export const LandingHeader = ({ user, isSignedIn }: LandingHeaderProps) => {
                 <div className="flex items-center gap-[clamp(1rem,2vw,2rem)]">
                   {!isSignedIn ? (
                     <>
-                      <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-                        <button className="hidden sm:block text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold text-white/40 hover:text-white uppercase tracking-widest cursor-pointer">
-                          Login
-                        </button>
-                      </SignInButton>
-                      <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
-                        <button className="group flex items-center gap-3 pl-[clamp(1rem,3vw,1.5rem)] pr-2 py-2 rounded-full bg-white/[0.08] hover:bg-blue-500/20 backdrop-blur-xl border border-white/10 text-white transition-all cursor-pointer">
-                          <span className="text-[clamp(0.65rem,1.2vw,0.75rem)] font-black uppercase tracking-widest">Comenzar</span>
-                          <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center group-hover:bg-blue-500 transition-colors shadow-lg">
-                            <svg className="w-4 h-4 text-black group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                          </div>
-                        </button>
-                      </SignUpButton>
+                      <a href="/login" className="hidden sm:block text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold text-white/40 hover:text-white uppercase tracking-widest cursor-pointer">
+                        Login
+                      </a>
+                      <a href="/register" className="group flex items-center gap-3 pl-[clamp(1rem,3vw,1.5rem)] pr-2 py-2 rounded-full bg-white/[0.08] hover:bg-blue-500/20 backdrop-blur-xl border border-white/10 text-white transition-all cursor-pointer">
+                        <span className="text-[clamp(0.65rem,1.2vw,0.75rem)] font-black uppercase tracking-widest">Comenzar</span>
+                        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center group-hover:bg-blue-500 transition-colors shadow-lg">
+                          <svg className="w-4 h-4 text-black group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                        </div>
+                      </a>
                     </>
                   ) : (
                     <div className="flex items-center gap-4">
                       <a href="/dashboard" className="text-white/40 hover:text-white font-bold uppercase tracking-widest text-[clamp(0.65rem,1.2vw,0.75rem)]">Dashboard</a>
-                      <SignOutButton redirectUrl="/">
-                        <button className="text-red-400/60 hover:text-red-400 font-bold uppercase tracking-widest text-[clamp(0.65rem,1.2vw,0.75rem)] cursor-pointer">
-                          Logout
-                        </button>
-                      </SignOutButton>
+                      <button onClick={signOut} className="text-red-400/60 hover:text-red-400 font-bold uppercase tracking-widest text-[clamp(0.65rem,1.2vw,0.75rem)] cursor-pointer">
+                        Logout
+                      </button>
                     </div>
                   )}
                 </div>

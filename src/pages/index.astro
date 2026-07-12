@@ -3,10 +3,10 @@ import "../styles/global.css";
 import { LandingHeader } from "@/components/shared/LandingHeader";
 import { FluidGraphic } from "@/components/shared/FluidGraphic";
 
-// Si el usuario ya está autenticado, redirigir al dashboard (Usando Clerk)
-const { userId } = Astro.locals.auth();
-if (userId) {
-  return Astro.redirect("/dashboard");
+// Si el usuario ya esta autenticado, redirigir a su panel
+const user = Astro.locals.user;
+if (user) {
+  return Astro.redirect(user.role === "coach" ? "/coach" : "/dashboard");
 }
 ---
 
@@ -15,13 +15,19 @@ if (userId) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="FORJA es la app de entrenamiento para hipertrofia — registra series, analiza progreso y optimiza cada sesión con inteligencia artificial." />
     <title>FORJA Hypertrophy - Transforma tu físico</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    </noscript>
     <script is:inline>
       // Immediate execution to prevent scroll jumps
       if ('scrollRestoration' in history) {
@@ -295,14 +301,14 @@ if (userId) {
             <div class="relative z-10 space-y-8 flex-grow">
               <div class="space-y-2">
                 <h3 class="text-[clamp(1.25rem,4cqw,1.5rem)] font-bold text-white">Esencial</h3>
-                <p class="text-white/40 text-sm">Ideal para principiantes enfocados en la técnica.</p>
+                <p class="text-white/55 text-sm">Ideal para principiantes enfocados en la técnica.</p>
               </div>
               
               <div class="relative inline-flex items-end">
                 <span class="text-[clamp(3.5rem,8cqw,4.5rem)] font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white from-50% to-black leading-none">
                   $0
                 </span>
-                <span class="text-xs font-bold text-white/40 uppercase tracking-widest ml-2 mb-1">/mes</span>
+                <span class="text-xs font-bold text-white/55 uppercase tracking-widest ml-2 mb-1">/mes</span>
               </div>
 
               <div class="space-y-4 py-6 border-t border-white/5">
@@ -347,7 +353,7 @@ if (userId) {
                   <span class="text-[clamp(4rem,10cqw,5.5rem)] font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white from-50% to-black leading-none">
                     $12
                   </span>
-                  <span class="text-xs font-bold text-white/40 uppercase tracking-widest ml-2 mb-1">/mes</span>
+                  <span class="text-xs font-bold text-white/55 uppercase tracking-widest ml-2 mb-1">/mes</span>
                 </div>
 
                 <div class="space-y-4 py-6 border-t border-white/10">
@@ -387,14 +393,14 @@ if (userId) {
             <div class="relative z-10 space-y-8 flex-grow">
               <div class="space-y-2">
                 <h3 class="text-[clamp(1.25rem,4cqw,1.5rem)] font-bold text-white">Equipo</h3>
-                <p class="text-white/40 text-sm">Gestiona múltiples atletas y optimiza su progreso.</p>
+                <p class="text-white/55 text-sm">Gestiona múltiples atletas y optimiza su progreso.</p>
               </div>
               
               <div class="relative inline-flex items-end">
                 <span class="text-[clamp(3.5rem,8cqw,4.5rem)] font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white from-50% to-black leading-none">
                   $49
                 </span>
-                <span class="text-xs font-bold text-white/40 uppercase tracking-widest ml-2 mb-1">/mes</span>
+                <span class="text-xs font-bold text-white/55 uppercase tracking-widest ml-2 mb-1">/mes</span>
               </div>
 
               <div class="space-y-4 py-6 border-t border-white/5">
@@ -426,7 +432,7 @@ if (userId) {
         
         <!-- SEO Footer for Pricing -->
         <div class="mt-20 pt-10 border-t border-white/5 text-center">
-          <p class="text-white/40 text-[clamp(0.75rem,1.5vw,0.875rem)] max-w-3xl mx-auto italic leading-relaxed">
+          <p class="text-white/55 text-[clamp(0.75rem,1.5vw,0.875rem)] max-w-3xl mx-auto italic leading-relaxed">
             * Todos los planes incluyen acceso a nuestra comunidad de hipertrofia y soporte técnico 24/7. 
             Optimiza tu entrenamiento de fuerza con FORJA, la plataforma líder en seguimiento de hipertrofia y culturismo natural.
           </p>
@@ -492,7 +498,7 @@ if (userId) {
             <!-- Brand & Description - Much wider and horizontal -->
             <div class="lg:col-span-5 space-y-[clamp(1.5rem,4vw,2rem)]">
               <div class="flex items-center gap-4">
-                <img src="/isotipo.png" alt="FORJA" class="h-[clamp(2rem,5vw,2.5rem)] w-auto brightness-200" />
+                <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" class="h-[clamp(2rem,5vw,2.5rem)] w-auto brightness-200" />
                 <div class="flex flex-col">
                   <span class="text-[clamp(1.25rem,3vw,1.5rem)] font-black text-white tracking-tighter uppercase leading-none">FORJA</span>
                   <span class="text-[9px] font-bold text-blue-400 uppercase tracking-[0.3em] mt-1">Hypertrophy App</span>
@@ -500,11 +506,11 @@ if (userId) {
               </div>
               
               <div class="flex items-center gap-4">
-                <a href="#" class="group w-[clamp(2.25rem,5vw,2.5rem)] h-[clamp(2.25rem,5vw,2.5rem)] rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
-                  <svg class="w-[40%] h-[40%] text-white/40 group-hover:text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.058-1.69-.072-4.949-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                <a href="#" aria-label="Instagram de FORJA" class="group w-[clamp(2.25rem,5vw,2.5rem)] h-[clamp(2.25rem,5vw,2.5rem)] rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
+                  <svg class="w-[40%] h-[40%] text-white/40 group-hover:text-blue-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.058-1.69-.072-4.949-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
                 </a>
-                <a href="#" class="group w-[clamp(2.25rem,5vw,2.5rem)] h-[clamp(2.25rem,5vw,2.5rem)] rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
-                  <svg class="w-[40%] h-[40%] text-white/40 group-hover:text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.84 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                <a href="#" aria-label="Twitter / X de FORJA" class="group w-[clamp(2.25rem,5vw,2.5rem)] h-[clamp(2.25rem,5vw,2.5rem)] rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
+                  <svg class="w-[40%] h-[40%] text-white/40 group-hover:text-blue-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.84 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
                 </a>
               </div>
             </div>
