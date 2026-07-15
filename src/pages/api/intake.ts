@@ -39,7 +39,7 @@ export const POST: APIRoute = async (context) => {
 
   const [form] = await db
     .insert(intakeForms)
-    .values({ userId: user.id, goals, health, lifestyle, availability })
+    .values({ userId: user.id, version: 2, goals, health, lifestyle, availability })
     .returning();
 
   await db

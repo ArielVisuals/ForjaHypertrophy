@@ -8,6 +8,7 @@ import {
   SLEEP_HOURS,
   SESSION_MINUTES,
   PREFERRED_TIMES,
+  OCCUPATIONS,
   EQUIPMENT,
 } from "../../lib/constants/intake";
 
@@ -27,6 +28,8 @@ interface IntakeDraft {
     previousObstacles: string;
   };
   health: {
+    age: number;
+    heightCm: number;
     injuries: string;
     conditions: string;
     medications: string;
@@ -34,6 +37,10 @@ interface IntakeDraft {
   };
   lifestyle: {
     nutritionHabits: string;
+    likedFoods: string;
+    dislikedFoods: string;
+    heavyFoods: string;
+    allergies: string;
     mealsPerDay: string;
     hydrationLitersPerDay: string;
     sleepHours: string;
@@ -41,6 +48,9 @@ interface IntakeDraft {
     stressLevel: number;
   };
   availability: {
+    occupation: string;
+    occupationSchedule: string;
+    dailyRoutine: string;
     daysPerWeek: number;
     minutesPerSession: string;
     preferredTime: string;
@@ -52,9 +62,9 @@ interface IntakeDraft {
 
 const EMPTY_DRAFT: IntakeDraft = {
   goals: { primaryGoal: "", specificGoal: "", motivation: "", previousObstacles: "" },
-  health: { injuries: "", conditions: "", medications: "", recentActivityLevel: "" },
-  lifestyle: { nutritionHabits: "", mealsPerDay: "", hydrationLitersPerDay: "", sleepHours: "", sleepQuality: 5, stressLevel: 5 },
-  availability: { daysPerWeek: 0, minutesPerSession: "", preferredTime: "", likedExercises: "", dislikedExercises: "", equipment: "" },
+  health: { age: 0, heightCm: 0, injuries: "", conditions: "", medications: "", recentActivityLevel: "" },
+  lifestyle: { nutritionHabits: "", likedFoods: "", dislikedFoods: "", heavyFoods: "", allergies: "", mealsPerDay: "", hydrationLitersPerDay: "", sleepHours: "", sleepQuality: 5, stressLevel: 5 },
+  availability: { occupation: "", occupationSchedule: "", dailyRoutine: "", daysPerWeek: 0, minutesPerSession: "", preferredTime: "", likedExercises: "", dislikedExercises: "", equipment: "" },
 };
 
 const STEPS = [
@@ -160,7 +170,15 @@ export function OnboardingForm() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(DRAFT_KEY);
-      if (stored) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(stored) });
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setDraft({
+          goals: { ...EMPTY_DRAFT.goals, ...parsed.goals },
+          health: { ...EMPTY_DRAFT.health, ...parsed.health },
+          lifestyle: { ...EMPTY_DRAFT.lifestyle, ...parsed.lifestyle },
+          availability: { ...EMPTY_DRAFT.availability, ...parsed.availability },
+        });
+      }
     } catch {}
   }, []);
 
@@ -179,11 +197,16 @@ export function OnboardingForm() {
       case "goals":
         return !!draft.goals.primaryGoal && draft.goals.specificGoal.trim().length > 0;
       case "health":
-        return !!draft.health.recentActivityLevel;
+        return !!draft.health.recentActivityLevel && draft.health.age > 0 && draft.health.heightCm > 0;
       case "lifestyle":
         return !!draft.lifestyle.mealsPerDay && !!draft.lifestyle.sleepHours;
       case "availability":
-        return draft.availability.daysPerWeek > 0 && !!draft.availability.minutesPerSession && !!draft.availability.preferredTime;
+        return (
+          !!draft.availability.occupation &&
+          draft.availability.daysPerWeek > 0 &&
+          !!draft.availability.minutesPerSession &&
+          !!draft.availability.preferredTime
+        );
     }
   })();
 
@@ -363,6 +386,32 @@ export function OnboardingForm() {
 
           {STEPS[step].id === "health" && (
             <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Edad</FieldLabel>
+                  <input
+                    type="number"
+                    min={12}
+                    max={90}
+                    value={draft.health.age || ""}
+                    onChange={e => patch("health", { age: Math.min(90, Math.max(0, Number(e.target.value) || 0)) })}
+                    placeholder="Años"
+                    className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Estatura (cm)</FieldLabel>
+                  <input
+                    type="number"
+                    min={120}
+                    max={230}
+                    value={draft.health.heightCm || ""}
+                    onChange={e => patch("health", { heightCm: Math.min(230, Math.max(0, Number(e.target.value) || 0)) })}
+                    placeholder="Ej. 175"
+                    className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                  />
+                </div>
+              </div>
               <div>
                 <FieldLabel>Nivel de actividad fisica reciente</FieldLabel>
                 <div className="grid sm:grid-cols-2 gap-2">
@@ -421,6 +470,38 @@ export function OnboardingForm() {
                 />
               </div>
               <div>
+                <FieldLabel optional>Que te gusta comer</FieldLabel>
+                <TextArea
+                  value={draft.lifestyle.likedFoods}
+                  onChange={v => patch("lifestyle", { likedFoods: v })}
+                  placeholder="Comidas y alimentos que disfrutas y comerias seguido"
+                />
+              </div>
+              <div>
+                <FieldLabel optional>Que NO te gusta comer</FieldLabel>
+                <TextArea
+                  value={draft.lifestyle.dislikedFoods}
+                  onChange={v => patch("lifestyle", { dislikedFoods: v })}
+                  placeholder="Alimentos que prefieres evitar en tu plan"
+                />
+              </div>
+              <div>
+                <FieldLabel optional>Comidas que te caen pesadas</FieldLabel>
+                <TextArea
+                  value={draft.lifestyle.heavyFoods}
+                  onChange={v => patch("lifestyle", { heavyFoods: v })}
+                  placeholder="Ej. Lacteos, frituras, picante... Escribe NINGUNA si no aplica"
+                />
+              </div>
+              <div>
+                <FieldLabel optional>Alergias alimentarias</FieldLabel>
+                <TextArea
+                  value={draft.lifestyle.allergies}
+                  onChange={v => patch("lifestyle", { allergies: v })}
+                  placeholder="Ej. Nueces, mariscos, gluten... Escribe NINGUNA si no aplica"
+                />
+              </div>
+              <div>
                 <FieldLabel>Comidas al dia</FieldLabel>
                 <ChipGroup
                   options={MEALS_PER_DAY}
@@ -467,6 +548,34 @@ export function OnboardingForm() {
 
           {STEPS[step].id === "availability" && (
             <div className="space-y-6">
+              <div>
+                <FieldLabel>A que te dedicas</FieldLabel>
+                <ChipGroup
+                  options={OCCUPATIONS}
+                  value={draft.availability.occupation}
+                  onChange={v => patch("availability", { occupation: v })}
+                />
+              </div>
+              {draft.availability.occupation && draft.availability.occupation !== "neither" && (
+                <div>
+                  <FieldLabel optional>En que horario</FieldLabel>
+                  <input
+                    type="text"
+                    value={draft.availability.occupationSchedule}
+                    onChange={e => patch("availability", { occupationSchedule: e.target.value })}
+                    placeholder="Ej. Lunes a viernes de 9:00 a 18:00"
+                    className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
+                  />
+                </div>
+              )}
+              <div>
+                <FieldLabel optional>Como son tus tiempos en el dia</FieldLabel>
+                <TextArea
+                  value={draft.availability.dailyRoutine}
+                  onChange={v => patch("availability", { dailyRoutine: v })}
+                  placeholder="Ej. Me levanto 6:30, clases hasta las 14:00, libre de 17:00 a 20:00..."
+                />
+              </div>
               <div>
                 <FieldLabel>Dias por semana que puedes entrenar</FieldLabel>
                 <div className="grid grid-cols-7 gap-1.5">

@@ -25,6 +25,13 @@ export const SLEEP_HOURS = ["MENOS DE 6H", "6-7H", "7-8H", "8H+"];
 export const SESSION_MINUTES = ["30-45 MIN", "45-60 MIN", "60-90 MIN", "90+ MIN"];
 export const PREFERRED_TIMES = ["MANANA", "MEDIODIA", "TARDE", "NOCHE"];
 
+export const OCCUPATIONS = [
+  { value: "study",   label: "ESTUDIO" },
+  { value: "work",    label: "TRABAJO" },
+  { value: "both",    label: "ESTUDIO Y TRABAJO" },
+  { value: "neither", label: "NINGUNO" },
+];
+
 export const EQUIPMENT = [
   { value: "full_gym",   label: "GIMNASIO COMPLETO" },
   { value: "basic_gym",  label: "GIMNASIO BASICO" },

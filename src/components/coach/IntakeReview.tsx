@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   PRIMARY_GOALS,
   ACTIVITY_LEVELS,
+  OCCUPATIONS,
   EQUIPMENT,
   intakeLabel,
 } from "../../lib/constants/intake";
@@ -19,6 +20,8 @@ interface IntakeData {
     previousObstacles?: string;
   };
   health: {
+    age?: number;
+    heightCm?: number;
     injuries?: string;
     conditions?: string;
     medications?: string;
@@ -26,6 +29,10 @@ interface IntakeData {
   };
   lifestyle: {
     nutritionHabits?: string;
+    likedFoods?: string;
+    dislikedFoods?: string;
+    heavyFoods?: string;
+    allergies?: string;
     mealsPerDay?: string;
     hydrationLitersPerDay?: string;
     sleepHours?: string;
@@ -33,6 +40,9 @@ interface IntakeData {
     stressLevel?: number;
   };
   availability: {
+    occupation?: string;
+    occupationSchedule?: string;
+    dailyRoutine?: string;
     daysPerWeek?: number;
     minutesPerSession?: string;
     preferredTime?: string;
@@ -105,7 +115,12 @@ export function IntakeReview({ athleteId, intake, submittedAt, reviewedAt: initi
     }
   };
 
-  const hasHealthFlags = !!(intake.health.injuries?.trim() || intake.health.conditions?.trim() || intake.health.medications?.trim());
+  const hasHealthFlags = !!(
+    intake.health.injuries?.trim() ||
+    intake.health.conditions?.trim() ||
+    intake.health.medications?.trim() ||
+    intake.lifestyle.allergies?.trim()
+  );
 
   return (
     <div className="rounded-[2rem] bg-[#0A0A0B] border border-white/10 overflow-hidden">
@@ -155,6 +170,10 @@ export function IntakeReview({ athleteId, intake, submittedAt, reviewedAt: initi
             {/* Salud */}
             <div className="space-y-4">
               <SectionTitle>Salud y estado fisico</SectionTitle>
+              <div className="grid grid-cols-2 gap-4">
+                <Answer label="Edad" value={intake.health.age ? `${intake.health.age} años` : null} />
+                <Answer label="Estatura" value={intake.health.heightCm ? `${intake.health.heightCm} cm` : null} />
+              </div>
               <Answer label="Actividad fisica reciente" value={intake.health.recentActivityLevel ? intakeLabel(ACTIVITY_LEVELS, intake.health.recentActivityLevel) : null} />
               <Answer label="Lesiones" value={intake.health.injuries} alert={!!intake.health.injuries?.trim()} />
               <Answer label="Condiciones medicas" value={intake.health.conditions} alert={!!intake.health.conditions?.trim()} />
@@ -165,6 +184,12 @@ export function IntakeReview({ athleteId, intake, submittedAt, reviewedAt: initi
             <div className="space-y-4">
               <SectionTitle>Habitos y nutricion</SectionTitle>
               <Answer label="Alimentacion habitual" value={intake.lifestyle.nutritionHabits} />
+              <Answer label="Alergias alimentarias" value={intake.lifestyle.allergies} alert={!!intake.lifestyle.allergies?.trim()} />
+              <Answer label="Comidas que le caen pesadas" value={intake.lifestyle.heavyFoods} alert={!!intake.lifestyle.heavyFoods?.trim()} />
+              <div className="grid grid-cols-2 gap-4">
+                <Answer label="Le gusta comer" value={intake.lifestyle.likedFoods} />
+                <Answer label="No le gusta comer" value={intake.lifestyle.dislikedFoods} />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <Answer label="Comidas al dia" value={intake.lifestyle.mealsPerDay} />
                 <Answer label="Hidratacion" value={intake.lifestyle.hydrationLitersPerDay} />
@@ -177,6 +202,11 @@ export function IntakeReview({ athleteId, intake, submittedAt, reviewedAt: initi
             {/* Disponibilidad */}
             <div className="space-y-4">
               <SectionTitle>Disponibilidad y preferencias</SectionTitle>
+              <div className="grid grid-cols-2 gap-4">
+                <Answer label="Ocupacion" value={intake.availability.occupation ? intakeLabel(OCCUPATIONS, intake.availability.occupation) : null} />
+                <Answer label="Horario de ocupacion" value={intake.availability.occupationSchedule} />
+              </div>
+              <Answer label="Tiempos en el dia" value={intake.availability.dailyRoutine} />
               <div className="grid grid-cols-2 gap-4">
                 <Answer label="Dias por semana" value={intake.availability.daysPerWeek || null} />
                 <Answer label="Tiempo por sesion" value={intake.availability.minutesPerSession} />
