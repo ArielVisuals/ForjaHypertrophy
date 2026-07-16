@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { MUSCLE_GROUP_LABELS } from "../../lib/constants/programs";
 import { TechniqueModal } from "../shared/TechniqueModal";
+import { ExerciseSelector } from "../workout/ExerciseSelector";
 
 /**
  * Editor de programa de 7 dias (metadatos + prescripcion por dia).
@@ -97,6 +98,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
   const [error, setError] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<{ name: string; muscleGroup?: string; gifUrl?: string | null }[]>([]);
   const [techniqueName, setTechniqueName] = useState<string | null>(null);
+  const [pickerFor, setPickerFor] = useState<number | null>(null); // indice del ejercicio en el dia seleccionado
 
   useEffect(() => {
     fetch("/api/exercises")
@@ -302,6 +304,17 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                       placeholder="Nombre del ejercicio"
                       className="flex-1 min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setPickerFor(k)}
+                      title="Elegir del catálogo"
+                      aria-label="Elegir ejercicio del catálogo"
+                      className="shrink-0 h-9 w-9 rounded-lg bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-white/35 hover:text-blue-300 hover:border-blue-500/40 transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+                      </svg>
+                    </button>
                     {catalog.find(c => c.name.toLowerCase() === ex.name.toLowerCase())?.gifUrl && (
                       <button
                         type="button"
@@ -383,6 +396,22 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
 
       {techniqueName && (
         <TechniqueModal exerciseName={techniqueName} onClose={() => setTechniqueName(null)} />
+      )}
+
+      {pickerFor !== null && (
+        <ExerciseSelector
+          initialFilter={
+            (draft.days[selectedDay].exercises[pickerFor]?.muscleGroup as any) ?? "all"
+          }
+          onSelectExercise={picked => {
+            patchExercise(selectedDay, pickerFor, {
+              name: picked.name,
+              muscleGroup: (picked as any).muscleGroup ?? (picked as any).muscle_group ?? "chest",
+            });
+            setPickerFor(null);
+          }}
+          onClose={() => setPickerFor(null)}
+        />
       )}
 
       {error && (
