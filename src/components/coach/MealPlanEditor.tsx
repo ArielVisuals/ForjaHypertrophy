@@ -239,35 +239,35 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
               </button>
             </div>
 
-            {/* Ingredientes: nombre + cantidad + unidad */}
+            {/* Ingredientes: nombre + cantidad + unidad (dos lineas en movil) */}
             <div className="space-y-2">
-              <div className="grid grid-cols-[1fr_76px_84px_32px] gap-2 px-1">
+              <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_76px_84px_32px] gap-2 px-1">
                 {["Ingrediente", "Cantidad", "Unidad", ""].map((h, k) => (
                   <p key={k} className="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">{h}</p>
                 ))}
               </div>
               {meal.ingredients.map((ing, k) => (
-                <div key={k} className="grid grid-cols-[1fr_76px_84px_32px] gap-2 items-center">
+                <div key={k} className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
                   <input
                     type="text"
                     value={ing.name}
                     onChange={e => patchIngredient(i, k, { name: e.target.value })}
-                    placeholder="Ej. Avena en hojuelas"
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
+                    placeholder="Ingrediente (Ej. Avena en hojuelas)"
+                    className="w-full sm:w-auto sm:flex-1 min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
                   />
                   <input
                     type="number"
                     min={0}
                     step="any"
                     value={ing.qty || ""}
-                    placeholder="0"
+                    placeholder="Cant."
                     onChange={e => patchIngredient(i, k, { qty: Math.max(0, Number(e.target.value) || 0) })}
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                    className="flex-1 sm:flex-none sm:w-[76px] min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
                   />
                   <select
                     value={ing.unit}
                     onChange={e => patchIngredient(i, k, { unit: e.target.value })}
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
+                    className="flex-1 sm:flex-none sm:w-[84px] min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
                   >
                     {INGREDIENT_UNITS.map(u => (
                       <option key={u.value} value={u.value} className="bg-[#0A0A0B]">{u.label}</option>
@@ -276,7 +276,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
                   <button
                     type="button"
                     onClick={() => patchMeal(i, { ingredients: meal.ingredients.filter((_, j) => j !== k) })}
-                    className="h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
+                    className="h-9 w-9 shrink-0 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
                     aria-label="Quitar ingrediente"
                   >
                     ×
