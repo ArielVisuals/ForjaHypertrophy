@@ -62,7 +62,7 @@ const user = appUser ? { displayName: appUser.displayName, email: appUser.email 
               
               <!-- Logo -->
               <div class="flex items-center gap-3 shrink-0">
-                <a href={isSignedIn ? "/dashboard" : "/"} class="flex items-center gap-3">
+                <a href={isCoach ? "/coach" : isSignedIn ? "/dashboard" : "/"} class="flex items-center gap-3">
                   <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" class="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
                   <span class="text-[clamp(1rem,2vw,1.25rem)] font-extrabold text-white tracking-tighter">FORJA</span>
                 </a>
@@ -79,12 +79,12 @@ const user = appUser ? { displayName: appUser.displayName, email: appUser.email 
                       {isCoach && (
                         <a href="/coach/programs" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath.startsWith('/coach/programs') ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Biblioteca</a>
                       )}
-                      <a href="/dashboard" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/dashboard' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Dashboard</a>
-                      <a href="/workout" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/workout' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Entrenar</a>
-                      <a href="/progress" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/progress' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Progreso</a>
-                      <a href="/program" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/program' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Programas</a>
-                      <a href="/nutrition" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/nutrition' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Nutrición</a>
-                      <a href="/settings" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/settings' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Ajustes</a>
+                      {!isCoach && <a href="/dashboard" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/dashboard' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Dashboard</a>}
+                      {!isCoach && <a href="/workout" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/workout' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Entrenar</a>}
+                      {!isCoach && <a href="/progress" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/progress' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Progreso</a>}
+                      {!isCoach && <a href="/program" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/program' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Programas</a>}
+                      {!isCoach && <a href="/nutrition" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/nutrition' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Nutrición</a>}
+                      {!isCoach && <a href="/settings" class={`text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold uppercase tracking-[0.2em] transition-all ${currentPath === '/settings' ? 'text-blue-400' : 'text-white/50 hover:text-white'}`}>Ajustes</a>}
                     </>
                   ) : (
                     <>
@@ -116,6 +116,7 @@ const user = appUser ? { displayName: appUser.displayName, email: appUser.email 
       currentPath={currentPath}
       user={user}
       isSignedIn={isSignedIn}
+      isCoach={isCoach}
       client:load
     />
 

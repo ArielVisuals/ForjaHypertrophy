@@ -41,6 +41,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect("/dashboard");
   }
 
+  // El entrenador solo tiene interfaz de entrenador; si quiere entrenar,
+  // usa una cuenta de atleta aparte.
+  if (user.role === "coach" && !matches(pathname, ["/coach"])) {
+    return context.redirect("/coach");
+  }
+
   // Todo atleta debe completar la Evaluacion Inicial antes de usar la app
   if (
     user.role === "athlete" &&
