@@ -99,6 +99,13 @@ const trainingDays = program ? program.schedule.filter(d => !d.isRest).length : 
             <p class="text-sm font-black text-orange-400/80 uppercase tracking-tight">Sin programa asignado</p>
           )}
 
+          <a
+            href={`/coach/athletes/${athlete.id}/program`}
+            class="block w-full py-2.5 rounded-xl text-center text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-500 transition-all"
+          >
+            {program ? "Editar / crear personalizado" : "Crear programa personalizado"}
+          </a>
+
           <AssignProgram
             athleteId={athlete.id}
             templates={library.map(t => ({ id: t.id, name: t.name, isMaster: t.isMaster, trainingDays: t.trainingDays, durationWeeks: t.durationWeeks }))}

@@ -7,6 +7,7 @@ import {
   updateCoachTemplate,
   deleteCoachTemplate,
   assignProgramToAthlete,
+  saveAthleteProgram,
   type ProgramDraft,
 } from "@/lib/db/programs";
 
@@ -84,6 +85,21 @@ export const POST: APIRoute = async (context) => {
     const ok = await deleteCoachTemplate(coach.id, body.programId);
     if (!ok) return json({ error: "Solo puedes eliminar tus propias plantillas" }, 403);
     return new Response(null, { status: 204 });
+  }
+
+  if (action === "save-athlete") {
+    const { athleteId, programId } = body;
+    if (!athleteId) return json({ error: "Missing athleteId" }, 400);
+
+    const athlete = await requireCoachOf(context, athleteId);
+    if (athlete instanceof Response) return athlete;
+
+    const draft = parseDraft(body);
+    if (!draft) return json({ error: "Draft invalido: requiere nombre y 7 dias" }, 400);
+
+    const program = await saveAthleteProgram(coach.id, athleteId, draft, programId ?? undefined);
+    if (!program) return json({ error: "Programa no encontrado para este atleta" }, 404);
+    return json(program);
   }
 
   if (action === "assign") {

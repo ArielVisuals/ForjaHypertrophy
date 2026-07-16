@@ -1,0 +1,47 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { AthleteProgramEditor } from "@/components/coach/AthleteProgramEditor";
+import { getOwnedAthlete } from "@/lib/db/coach";
+import { getActiveProgramWithSchedule, getProgramLibrary } from "@/lib/db/programs";
+
+const coach = Astro.locals.user!;
+const athleteId = Astro.params.id!;
+
+const athlete = await getOwnedAthlete(coach.id, athleteId);
+if (!athlete) return Astro.redirect("/coach");
+
+const [currentProgram, library] = await Promise.all([
+  getActiveProgramWithSchedule(athleteId),
+  getProgramLibrary(coach.id),
+]);
+---
+
+<MainLayout title={`Programa — ${athlete.displayName ?? "Atleta"}`} description="Crea o edita el programa personalizado del asesorado.">
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
+
+    <!-- Header -->
+    <div class="space-y-4">
+      <a href={`/coach/athletes/${athlete.id}`} class="inline-flex items-center gap-2 text-[9px] font-black text-white/30 hover:text-white/60 uppercase tracking-[0.3em] transition-colors">
+        ← {athlete.displayName ?? "Atleta"}
+      </a>
+      <div class="space-y-1">
+        <p class="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.4em]">PLANIFICACIÓN</p>
+        <h1 class="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-[0.95]">
+          Programa<span class="text-white/20"> Personalizado</span>
+        </h1>
+        <p class="text-white/30 text-xs font-bold uppercase tracking-widest pt-1 max-w-xl">
+          Diseñado a la medida de {athlete.displayName ?? "tu atleta"}. No se guarda en la biblioteca.
+        </p>
+      </div>
+    </div>
+
+    <AthleteProgramEditor
+      athleteId={athlete.id}
+      athleteName={athlete.displayName ?? "Atleta"}
+      currentProgram={currentProgram}
+      templates={library.map(t => ({ id: t.id, name: t.name, trainingDays: t.trainingDays, durationWeeks: t.durationWeeks }))}
+      client:load
+    />
+    <div class="h-16 md:h-0"></div>
+  </div>
+</MainLayout>

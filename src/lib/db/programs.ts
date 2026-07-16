@@ -339,6 +339,63 @@ export async function assignProgramToAthlete(coachId: string, templateId: string
   return assigned;
 }
 
+/**
+ * Crea o actualiza el programa PERSONALIZADO de un atleta (sin pasar por
+ * plantillas). Si programId viene, edita ese programa del atleta en su lugar
+ * conservando su semana actual; si no, crea uno nuevo activo en semana 1.
+ */
+export async function saveAthleteProgram(
+  coachId: string,
+  athleteId: string,
+  draft: ProgramDraft,
+  programId?: string
+) {
+  if (programId) {
+    const [program] = await db
+      .update(trainingPrograms)
+      .set({
+        name: draft.name,
+        description: draft.description ?? null,
+        level: draft.level ?? null,
+        focus: draft.focus ?? null,
+        durationWeeks: draft.durationWeeks,
+        createdBy: coachId,
+      })
+      .where(and(eq(trainingPrograms.id, programId), eq(trainingPrograms.userId, athleteId)))
+      .returning();
+    if (!program) return null;
+
+    await db.delete(programDays).where(eq(programDays.programId, programId)); // cascade borra ejercicios
+    await insertScheduleRows(programId, draft.schedule);
+    return program;
+  }
+
+  await db
+    .update(trainingPrograms)
+    .set({ active: false })
+    .where(eq(trainingPrograms.userId, athleteId));
+
+  const [program] = await db
+    .insert(trainingPrograms)
+    .values({
+      userId: athleteId,
+      createdBy: coachId,
+      isMaster: false,
+      active: true,
+      currentWeek: 1,
+      name: draft.name,
+      description: draft.description ?? null,
+      level: draft.level ?? null,
+      focus: draft.focus ?? null,
+      splitType: "Custom",
+      durationWeeks: draft.durationWeeks,
+    })
+    .returning();
+
+  await insertScheduleRows(program.id, draft.schedule);
+  return program;
+}
+
 /** Programa activo del usuario con su schedule completo, o null si no tiene. */
 export async function getActiveProgramWithSchedule(userId: string): Promise<ProgramWithSchedule | null> {
   const [program] = await db
