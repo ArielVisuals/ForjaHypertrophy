@@ -77,6 +77,10 @@
   html {
     background-color: #000000 !important;
     background: #000000 !important;
+    /* Sin scroll lateral jamas: clip bloquea tambien el paneo tactil de iOS
+       (overflow-x hidden solo en body no basta en Safari) */
+    overflow-x: clip;
+    overscroll-behavior-x: none;
   }
 
   body {
@@ -90,6 +94,8 @@
     color: #FFFFFF !important;
     position: relative;
     min-height: 100vh;
+    overflow-x: clip;
+    max-width: 100vw;
   }
 
   * {
