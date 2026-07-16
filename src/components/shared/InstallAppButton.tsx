@@ -15,9 +15,63 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+type Platform = "ios-safari" | "ios-chrome" | "android-chrome" | "desktop-chromium" | "generic";
+
+function detectPlatform(): Platform {
+  const ua = navigator.userAgent;
+  const isIos = /iphone|ipad|ipod/i.test(ua);
+  if (isIos) return /crios/i.test(ua) ? "ios-chrome" : "ios-safari";
+  const isChromium = /chrome|chromium|edg/i.test(ua) && !/firefox|fxios/i.test(ua);
+  if (/android/i.test(ua)) return isChromium ? "android-chrome" : "generic";
+  return isChromium ? "desktop-chromium" : "generic";
+}
+
+const GUIDE: Record<Platform, { title: string; steps: React.ReactNode[] }> = {
+  "ios-safari": {
+    title: "En tu iPhone o iPad (Safari)",
+    steps: [
+      <>Toca el boton <span className="text-white">Compartir</span> de Safari (el cuadrado con la flecha hacia arriba, abajo al centro)</>,
+      <>Baja en la lista y elige <span className="text-white">Añadir a pantalla de inicio</span></>,
+      <>Confirma con <span className="text-white">Añadir</span>. FORJA aparecera como una app mas</>,
+    ],
+  },
+  "ios-chrome": {
+    title: "En tu iPhone con Chrome",
+    steps: [
+      <>Toca el boton <span className="text-white">Compartir</span> (el cuadrado con la flecha, junto a la barra de direcciones)</>,
+      <>Elige <span className="text-white">Añadir a pantalla de inicio</span></>,
+      <>Confirma con <span className="text-white">Añadir</span>. FORJA aparecera como una app mas</>,
+    ],
+  },
+  "android-chrome": {
+    title: "En tu Android con Chrome",
+    steps: [
+      <>Toca el menu de <span className="text-white">tres puntos</span> (arriba a la derecha)</>,
+      <>Elige <span className="text-white">Instalar aplicacion</span> (en versiones anteriores dice <span className="text-white">Añadir a pantalla principal</span>)</>,
+      <>Confirma con <span className="text-white">Instalar</span>. FORJA aparecera con las demas apps</>,
+    ],
+  },
+  "desktop-chromium": {
+    title: "En tu computadora (Chrome o Edge)",
+    steps: [
+      <>Busca el <span className="text-white">icono de instalar</span> al final de la barra de direcciones (un monitor con una flecha) y toca <span className="text-white">Instalar</span></>,
+      <>Si no lo ves: menu de <span className="text-white">tres puntos</span>, luego <span className="text-white">Enviar, guardar y compartir</span> y <span className="text-white">Instalar pagina como app</span> (en Edge: <span className="text-white">Aplicaciones</span>, <span className="text-white">Instalar este sitio como una aplicacion</span>)</>,
+      <>Confirma. FORJA se abrira en su propia ventana</>,
+    ],
+  },
+  generic: {
+    title: "En tu dispositivo",
+    steps: [
+      <>Abre el <span className="text-white">menu del navegador</span></>,
+      <>Busca la opcion <span className="text-white">Instalar app</span> o <span className="text-white">Añadir a pantalla de inicio</span></>,
+      <>Confirma. FORJA aparecera como una app mas</>,
+    ],
+  },
+};
+
 export function InstallAppButton() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIos, setIsIos] = useState(false);
+  const [platform, setPlatform] = useState<Platform>("generic");
   const [showIosGuide, setShowIosGuide] = useState(false);
   const [installed, setInstalled] = useState(false);
 
@@ -30,7 +84,7 @@ export function InstallAppButton() {
       return;
     }
 
-    setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
+    setPlatform(detectPlatform());
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -86,23 +140,12 @@ export function InstallAppButton() {
             <div className="space-y-1">
               <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.4em]">Instalar FORJA</p>
               <h3 className="text-xl font-black text-white uppercase tracking-tighter">
-                {isIos ? "En tu iPhone o iPad" : "En tu dispositivo"}
+                {GUIDE[platform].title}
               </h3>
             </div>
 
             <ol className="space-y-4">
-              {(isIos
-                ? [
-                    <>Toca el boton <span className="text-white">Compartir</span> de Safari (el cuadrado con la flecha hacia arriba)</>,
-                    <>Baja y elige <span className="text-white">Añadir a pantalla de inicio</span></>,
-                    <>Confirma con <span className="text-white">Añadir</span>. FORJA aparecera como una app mas</>,
-                  ]
-                : [
-                    <>Abre el menu del navegador (los <span className="text-white">tres puntos</span> en Chrome, o el icono de instalar en la barra de direcciones en escritorio)</>,
-                    <>Elige <span className="text-white">Instalar app</span> o <span className="text-white">Añadir a pantalla principal</span></>,
-                    <>Confirma. FORJA aparecera como una app mas</>,
-                  ]
-              ).map((step, i) => (
+              {GUIDE[platform].steps.map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="w-6 h-6 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-[10px] font-black text-blue-300 shrink-0">{i + 1}</span>
                   <p className="text-xs font-bold text-white/70 leading-relaxed">{step}</p>
