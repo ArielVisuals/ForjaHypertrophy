@@ -242,7 +242,7 @@ export function OnboardingForm() {
       {/* ── Riel izquierdo: marca, titulo y pasos (sticky en desktop) ── */}
       <aside className="lg:sticky lg:top-10 space-y-8">
         <div className="flex items-center gap-3">
-          <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" className="h-8 w-auto" />
+          <img src="/isotipo-96.webp" alt="" width="96" height="96" className="h-8 w-auto" />
           <span className="text-lg font-extrabold text-white tracking-tighter">FORJA</span>
         </div>
 

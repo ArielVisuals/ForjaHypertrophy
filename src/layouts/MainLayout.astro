@@ -38,6 +38,7 @@ const user = appUser ? { displayName: appUser.displayName, email: appUser.email 
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link
       rel="preload"
       as="style"
@@ -63,7 +64,7 @@ const user = appUser ? { displayName: appUser.displayName, email: appUser.email 
               <!-- Logo -->
               <div class="flex items-center gap-3 shrink-0">
                 <a href={isCoach ? "/coach" : isSignedIn ? "/dashboard" : "/"} class="flex items-center gap-3">
-                  <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" class="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
+                  <img src="/isotipo-96.webp" alt="" width="96" height="96" class="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
                   <span class="text-[clamp(1rem,2vw,1.25rem)] font-extrabold text-white tracking-tighter">FORJA</span>
                 </a>
               </div>

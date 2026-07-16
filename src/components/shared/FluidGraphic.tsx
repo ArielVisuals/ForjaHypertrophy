@@ -83,10 +83,10 @@ export const FluidGraphic = () => {
           >
             <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full scale-150" />
             <img
-              src="/isotipo.png"
+              src="/isotipo-512.webp"
               alt="FORJA Isotipo"
-              width="2048"
-              height="2048"
+              width="512"
+              height="512"
               className="relative w-[clamp(100px,40%,160px)] h-auto brightness-125 transition-all duration-700 group-hover:scale-110 group-hover:brightness-150"
             />
           </motion.div>

@@ -233,7 +233,7 @@ const lastCompletedAt = todaySessionData?.completedAt
     )}
 
     {/* Activity Heatmap */}
-    {userId && <ActivityHeatmap client:load />}
+    {userId && <ActivityHeatmap client:visible />}
 
     {/* Línea Divisora Técnica */}
     <div class="flex items-center gap-4">
@@ -243,7 +243,7 @@ const lastCompletedAt = todaySessionData?.completedAt
 
     {/* Resumen de Rendimiento (Cards de Stats) */}
     <div class="w-full">
-      {userId && <DashboardStats initialStats={initialStats} client:load />}
+      {userId && <DashboardStats initialStats={initialStats} client:visible />}
     </div>
 
     {/* Inteligencia de Módulos (Fuel & Progress & Action) */}
@@ -321,9 +321,9 @@ const lastCompletedAt = todaySessionData?.completedAt
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WeeklyVolumeWidget
           initialData={weeklyVolumeData ?? []}
-          client:load
+          client:visible
         />
-        <RecoveryInsightsWidget client:load />
+        <RecoveryInsightsWidget client:visible />
       </div>
     )}
 

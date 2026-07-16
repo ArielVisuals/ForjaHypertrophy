@@ -27,7 +27,7 @@ export const LandingHeader = ({ isSignedIn }: LandingHeaderProps) => {
           <div className={`flex items-center h-full px-[clamp(1.5rem,4vw,2.5rem)] ${isExpanded ? 'justify-between' : 'justify-center'}`}>
             <motion.div layout className="flex items-center gap-3 shrink-0">
               <a href="/" className="flex items-center gap-3 min-h-[44px]">
-                <img src="/isotipo.png" alt="FORJA" width="2048" height="2048" className="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
+                <img src="/isotipo-96.webp" alt="" width="96" height="96" className="h-[clamp(1.75rem,4vw,2.25rem)] w-auto" />
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[clamp(1rem,2vw,1.25rem)] font-extrabold text-white tracking-tighter">FORJA</motion.span>
