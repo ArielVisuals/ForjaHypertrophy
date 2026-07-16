@@ -61,16 +61,16 @@ export function InstallAppButton() {
   if (installed) return null;
 
   return (
-    <div className="flex justify-center pt-5">
+    <>
       <button
         type="button"
         onClick={install}
-        className="group inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-semibold text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/25 transition-all"
+        className="w-full sm:w-auto px-10 py-5 rounded-full text-[clamp(1rem,1.5vw,1.125rem)] font-semibold text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-3 cursor-pointer"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        Instalar la app en tu dispositivo
+        Instalar App
       </button>
 
       {/* Guia de instalacion para iOS */}
@@ -120,6 +120,6 @@ export function InstallAppButton() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
