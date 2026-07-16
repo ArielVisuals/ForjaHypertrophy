@@ -66,13 +66,13 @@ const trainingDays = program ? program.schedule.filter(d => !d.isRest).length : 
     <div class="grid lg:grid-cols-3 gap-6 items-start">
 
       <!-- Registro de entrenamiento -->
-      <div class="lg:col-span-2 space-y-4">
+      <div class="lg:col-span-2 space-y-4 min-w-0">
         <h2 class="text-xl font-black text-white uppercase tracking-tighter">Registro de entrenamiento</h2>
         <CoachWorkoutLog sessions={sessions} client:load />
       </div>
 
       <!-- Sidebar: programa + nutricion -->
-      <div class="space-y-6 lg:sticky lg:top-28">
+      <div class="space-y-6 lg:sticky lg:top-28 min-w-0">
 
         <!-- Programa -->
         <div class="p-6 rounded-[2rem] bg-[#0A0A0B] border border-white/10 space-y-4">

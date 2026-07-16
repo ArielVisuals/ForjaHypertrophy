@@ -84,7 +84,7 @@ export function CoachWorkoutLog({ sessions }: { sessions: CoachSession[] }) {
               <div className="px-5 pb-5 space-y-4">
                 <ul className="divide-y divide-white/[0.05] border-t border-white/[0.06]">
                   {s.exercises.map((ex, i) => (
-                    <li key={i} className="py-2.5 flex items-center justify-between gap-4">
+                    <li key={i} className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-4">
                       <div className="min-w-0">
                         <p className="text-xs font-black text-white/85 uppercase tracking-tight truncate">{ex.name}</p>
                         <p className="text-[8px] font-black text-white/25 uppercase tracking-widest mt-0.5">
