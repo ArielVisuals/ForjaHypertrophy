@@ -82,6 +82,13 @@ export const POST: APIRoute = async (context) => {
     return json(data);
   }
 
+  // Sin plan del coach no hay registro de combustible (mismo modelo que programas)
+  const requiresPlan = body.action === "add-staple" || body.action === undefined;
+  if (requiresPlan) {
+    const plan = await getActiveMealPlan(user.id);
+    if (!plan) return json({ error: "Tu entrenador aun no te asigna un plan alimenticio" }, 409);
+  }
+
   if (body.action === "add-staple") {
     const { name, calories, proteinG, carbsG, fatsG } = body;
     const [data] = await db

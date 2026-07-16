@@ -384,6 +384,20 @@ export function NutritionTracker() {
       </div>
     );
 
+  // Igual que el entrenamiento: sin plan del coach no hay registro libre
+  if (!plan)
+    return (
+      <div className="max-w-2xl mx-auto p-10 sm:p-14 rounded-[2.5rem] bg-[#0A0A0B] border border-white/10 text-center space-y-4">
+        <p className="text-[9px] font-black text-orange-500/60 uppercase tracking-[0.4em]">SIN PLAN ALIMENTICIO</p>
+        <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter leading-none">
+          Tu entrenador aun no te asigna un plan alimenticio
+        </h2>
+        <p className="text-white/30 text-xs font-bold uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
+          En cuanto diseñe tus comidas y metas apareceran aqui, y podras registrar cada comida del dia con un toque.
+        </p>
+      </div>
+    );
+
   return (
     <div className="space-y-10">
 
