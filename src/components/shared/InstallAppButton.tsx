@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 
 /**
- * Boton "Instalar la app" para la landing.
+ * Boton "Instalar la app" para la landing. Siempre visible salvo que la app
+ * ya corra instalada (standalone).
  *
- * - Android / Chrome / Edge: captura el evento beforeinstallprompt y lo
- *   dispara al hacer clic (instalacion nativa en un toque).
- * - iOS Safari: no existe API de instalacion, se muestra una guia con los
- *   pasos (Compartir -> Añadir a pantalla de inicio).
- * - Si la app ya corre instalada (standalone) o el navegador no soporta
- *   instalacion, el boton no se renderiza.
+ * - Android / Chrome / Edge: si el navegador entrego beforeinstallprompt,
+ *   un toque abre la instalacion nativa.
+ * - iOS Safari: guia de pasos (Compartir -> Añadir a pantalla de inicio).
+ * - Resto (o prompt aun no disponible): guia generica segun la plataforma.
  */
 
 interface BeforeInstallPromptEvent extends Event {
@@ -56,11 +55,10 @@ export function InstallAppButton() {
       if (outcome === "accepted") setInstallEvent(null);
       return;
     }
-    if (isIos) setShowIosGuide(true);
+    setShowIosGuide(true); // guia manual (iOS o navegador sin prompt disponible)
   };
 
-  // Sin soporte de instalacion en este navegador (o ya instalada): nada que mostrar
-  if (installed || (!installEvent && !isIos)) return null;
+  if (installed) return null;
 
   return (
     <div className="flex justify-center pt-5">
@@ -87,28 +85,29 @@ export function InstallAppButton() {
           >
             <div className="space-y-1">
               <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.4em]">Instalar FORJA</p>
-              <h3 className="text-xl font-black text-white uppercase tracking-tighter">En tu iPhone o iPad</h3>
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">
+                {isIos ? "En tu iPhone o iPad" : "En tu dispositivo"}
+              </h3>
             </div>
 
             <ol className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-[10px] font-black text-blue-300 shrink-0">1</span>
-                <p className="text-xs font-bold text-white/70 leading-relaxed">
-                  Toca el boton <span className="text-white">Compartir</span> de Safari (el cuadrado con la flecha hacia arriba)
-                </p>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-[10px] font-black text-blue-300 shrink-0">2</span>
-                <p className="text-xs font-bold text-white/70 leading-relaxed">
-                  Baja y elige <span className="text-white">Añadir a pantalla de inicio</span>
-                </p>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-[10px] font-black text-blue-300 shrink-0">3</span>
-                <p className="text-xs font-bold text-white/70 leading-relaxed">
-                  Confirma con <span className="text-white">Añadir</span>. FORJA aparecera como una app mas
-                </p>
-              </li>
+              {(isIos
+                ? [
+                    <>Toca el boton <span className="text-white">Compartir</span> de Safari (el cuadrado con la flecha hacia arriba)</>,
+                    <>Baja y elige <span className="text-white">Añadir a pantalla de inicio</span></>,
+                    <>Confirma con <span className="text-white">Añadir</span>. FORJA aparecera como una app mas</>,
+                  ]
+                : [
+                    <>Abre el menu del navegador (los <span className="text-white">tres puntos</span> en Chrome, o el icono de instalar en la barra de direcciones en escritorio)</>,
+                    <>Elige <span className="text-white">Instalar app</span> o <span className="text-white">Añadir a pantalla principal</span></>,
+                    <>Confirma. FORJA aparecera como una app mas</>,
+                  ]
+              ).map((step, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-[10px] font-black text-blue-300 shrink-0">{i + 1}</span>
+                  <p className="text-xs font-bold text-white/70 leading-relaxed">{step}</p>
+                </li>
+              ))}
             </ol>
 
             <button

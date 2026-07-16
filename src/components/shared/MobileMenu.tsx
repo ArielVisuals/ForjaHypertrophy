@@ -171,6 +171,30 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
                   </div>
                 </div>
 
+                {/* Secciones del coach (el sheet del atleta ya las tiene en la barra) */}
+                {isCoach && NAV_COACH.map(item => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-4 w-full px-4 py-3.5 rounded-2xl border transition-all ${
+                      currentPath === item.href
+                        ? "bg-white/[0.06] border-white/15 text-white"
+                        : "bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center shrink-0">
+                      {item.icon}
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">
+                      {item.href === "/coach" ? "Asesorados" : "Biblioteca"}
+                    </span>
+                    <svg className="w-4 h-4 ml-auto opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                ))}
+
                 {/* Settings link (solo atleta) */}
                 {!isCoach && <a
                   href="/settings"

@@ -56,7 +56,11 @@ export const LandingHeader = ({ isSignedIn }: LandingHeaderProps) => {
                       <a href="/login" className="hidden sm:block text-[clamp(0.65rem,1.2vw,0.75rem)] font-bold text-white/40 hover:text-white uppercase tracking-widest cursor-pointer">
                         Login
                       </a>
-                      <a href="/register" className="group flex items-center gap-3 pl-[clamp(1rem,3vw,1.5rem)] pr-2 py-2 rounded-full bg-white/[0.08] hover:bg-blue-500/20 backdrop-blur-xl border border-white/10 text-white transition-all cursor-pointer">
+                      {/* Movil: iniciar sesion como accion principal del header */}
+                      <a href="/login" className="sm:hidden flex items-center px-5 py-2.5 rounded-full bg-white/[0.08] backdrop-blur-xl border border-white/10 text-white text-[11px] font-black uppercase tracking-widest cursor-pointer">
+                        Iniciar Sesión
+                      </a>
+                      <a href="/register" className="group hidden sm:flex items-center gap-3 pl-[clamp(1rem,3vw,1.5rem)] pr-2 py-2 rounded-full bg-white/[0.08] hover:bg-blue-500/20 backdrop-blur-xl border border-white/10 text-white transition-all cursor-pointer">
                         <span className="text-[clamp(0.65rem,1.2vw,0.75rem)] font-black uppercase tracking-widest">Comenzar</span>
                         <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center group-hover:bg-blue-500 transition-colors shadow-lg">
                           <svg className="w-4 h-4 text-black group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
