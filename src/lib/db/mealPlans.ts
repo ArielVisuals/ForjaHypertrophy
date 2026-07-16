@@ -6,13 +6,14 @@
 import { db } from "./index";
 import { mealPlans, mealPlanMeals, nutritionTargets } from "./schema";
 import { eq, and, asc } from "drizzle-orm";
-import { MEAL_SLOTS } from "../constants/nutrition";
+import { MEAL_SLOTS, type Ingredient } from "../constants/nutrition";
 
 export interface MealPlanMeal {
   id: string;
   slot: string;
   order: number;
   name: string;
+  ingredients: Ingredient[];
   description: string | null;
   calories: number;
   proteinG: number;
@@ -62,6 +63,7 @@ export async function getActiveMealPlan(athleteId: string): Promise<ActiveMealPl
       slot: m.slot,
       order: m.order,
       name: m.name,
+      ingredients: Array.isArray(m.ingredients) ? (m.ingredients as Ingredient[]) : [],
       description: m.description,
       calories: Number(m.calories),
       proteinG: Number(m.proteinG ?? 0),
@@ -81,6 +83,7 @@ export interface MealPlanDraft {
   meals: {
     slot: string;
     name: string;
+    ingredients?: Ingredient[];
     description?: string | null;
     calories: number;
     proteinG: number;
@@ -123,6 +126,7 @@ export async function saveMealPlan(coachId: string, athleteId: string, draft: Me
         slot: m.slot,
         order,
         name: m.name.trim(),
+        ingredients: (m.ingredients ?? []).filter(i => i.name.trim()),
         description: m.description?.trim() || null,
         calories: m.calories.toString(),
         proteinG: m.proteinG.toString(),

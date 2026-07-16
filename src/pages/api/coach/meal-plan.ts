@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { requireCoachOf } from "@/lib/auth";
 import { getActiveMealPlan, saveMealPlan, deactivateMealPlan, type MealPlanDraft } from "@/lib/db/mealPlans";
-import { MEAL_SLOTS } from "@/lib/constants/nutrition";
+import { MEAL_SLOTS, INGREDIENT_UNITS } from "@/lib/constants/nutrition";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -22,6 +22,16 @@ function parseDraft(body: any): MealPlanDraft | null {
       .map((m: any) => ({
         slot: (MEAL_SLOTS as readonly string[]).includes(m.slot) ? m.slot : "comida",
         name: String(m.name).trim(),
+        ingredients: Array.isArray(m.ingredients)
+          ? m.ingredients
+              .filter((i: any) => i?.name?.trim())
+              .slice(0, 30)
+              .map((i: any) => ({
+                name: String(i.name).trim().slice(0, 80),
+                qty: Math.min(100000, Math.max(0, Number(i.qty) || 0)),
+                unit: INGREDIENT_UNITS.some(u => u.value === i.unit) ? i.unit : "g",
+              }))
+          : [],
         description: m.description?.trim() || null,
         calories: num(m.calories),
         proteinG: num(m.proteinG, 1000),

@@ -234,7 +234,9 @@ export const mealPlanMeals = pgTable("meal_plan_meals", {
   slot: text("slot").notNull(), // 'desayuno' | 'almuerzo' | 'comida' | 'cena' | 'snack'
   order: integer("order").notNull(),
   name: text("name").notNull(),
-  description: text("description"), // ingredientes / preparacion
+  // [{ name, qty, unit }] — unit: pza | g | kg | ml | l | taza | cda | cdta | scoop
+  ingredients: jsonb("ingredients").notNull().default([]),
+  description: text("description"), // preparacion / notas
   calories: decimal("calories", { precision: 7, scale: 2 }).notNull(),
   proteinG: decimal("protein_g", { precision: 6, scale: 2 }),
   carbsG: decimal("carbs_g", { precision: 6, scale: 2 }),

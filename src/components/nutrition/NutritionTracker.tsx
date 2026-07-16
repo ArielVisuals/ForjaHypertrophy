@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import NumberTicker from "../ui/NumberTicker";
 import { NutritionWeeklyChart } from "./NutritionWeeklyChart";
-import { MEAL_SLOT_LABELS } from "../../lib/constants/nutrition";
+import { MEAL_SLOT_LABELS, formatIngredient, type Ingredient } from "../../lib/constants/nutrition";
 
 interface NutritionLog {
   id: string;
@@ -19,6 +19,7 @@ interface PlanMeal {
   id: string;
   slot: string;
   name: string;
+  ingredients?: Ingredient[];
   description: string | null;
   calories: number;
   proteinG: number;
@@ -420,6 +421,11 @@ export function NutritionTracker() {
                       <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
                         {Math.round(meal.calories)} KCAL | {Math.round(meal.proteinG)}G P | {Math.round(meal.carbsG)}G C | {Math.round(meal.fatsG)}G F
                       </p>
+                      {!logged && (meal.ingredients?.length ?? 0) > 0 && (
+                        <p className="text-[9px] font-bold text-white/25 tracking-wide mt-1 leading-relaxed">
+                          {meal.ingredients!.map(formatIngredient).join("  ·  ")}
+                        </p>
+                      )}
                       {meal.description && !logged && (
                         <p className="text-[9px] font-bold text-white/20 tracking-wide mt-1 leading-relaxed">{meal.description}</p>
                       )}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MEAL_SLOT_LABELS } from "../../lib/constants/nutrition";
+import { MEAL_SLOT_LABELS, INGREDIENT_UNITS, type Ingredient } from "../../lib/constants/nutrition";
 
 /**
  * Editor del plan alimenticio de un asesorado. Guardar reemplaza el plan
@@ -9,7 +9,8 @@ import { MEAL_SLOT_LABELS } from "../../lib/constants/nutrition";
 interface DraftMeal {
   slot: string;
   name: string;
-  description: string;
+  ingredients: Ingredient[];
+  description: string; // preparacion / notas
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -33,14 +34,17 @@ interface InitialPlan {
   proteinG: number;
   carbsG: number;
   fatsG: number;
-  meals: { slot: string; name: string; description: string | null; calories: number; proteinG: number; carbsG: number; fatsG: number }[];
+  meals: { slot: string; name: string; ingredients?: Ingredient[]; description: string | null; calories: number; proteinG: number; carbsG: number; fatsG: number }[];
 }
 
 const SLOTS = Object.entries(MEAL_SLOT_LABELS);
 
+const newIngredient = (): Ingredient => ({ name: "", qty: 0, unit: "g" });
+
 const newMeal = (slot = "desayuno"): DraftMeal => ({
   slot,
   name: "",
+  ingredients: [newIngredient()],
   description: "",
   calories: 0,
   proteinG: 0,
@@ -62,7 +66,11 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
           proteinG: initialPlan.proteinG,
           carbsG: initialPlan.carbsG,
           fatsG: initialPlan.fatsG,
-          meals: initialPlan.meals.map(m => ({ ...m, description: m.description ?? "" })),
+          meals: initialPlan.meals.map(m => ({
+            ...m,
+            ingredients: m.ingredients?.length ? m.ingredients : [newIngredient()],
+            description: m.description ?? "",
+          })),
         }
       : {
           name: `Plan de ${athleteName}`,
@@ -81,6 +89,16 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
 
   const patchMeal = (i: number, fields: Partial<DraftMeal>) =>
     setDraft(d => ({ ...d, meals: d.meals.map((m, j) => (j === i ? { ...m, ...fields } : m)) }));
+
+  const patchIngredient = (mealIdx: number, ingIdx: number, fields: Partial<Ingredient>) =>
+    setDraft(d => ({
+      ...d,
+      meals: d.meals.map((m, j) =>
+        j === mealIdx
+          ? { ...m, ingredients: m.ingredients.map((ing, k) => (k === ingIdx ? { ...ing, ...fields } : ing)) }
+          : m
+      ),
+    }));
 
   const totals = draft.meals.reduce(
     (acc, m) => ({
@@ -191,49 +209,110 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
       <div className="p-6 sm:p-8 rounded-[2rem] bg-[#0A0A0B] border border-white/10 space-y-4">
         <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em]">Comidas del dia</p>
 
-        <div className="hidden md:grid grid-cols-[110px_1fr_1.2fr_70px_60px_60px_60px_32px] gap-2 px-1">
-          {["Franja", "Comida", "Descripcion", "Kcal", "Prot", "Carbs", "Grasas", ""].map((h, i) => (
-            <p key={i} className="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">{h}</p>
-          ))}
-        </div>
-
         {draft.meals.map((meal, i) => (
-          <div key={i} className="grid grid-cols-2 md:grid-cols-[110px_1fr_1.2fr_70px_60px_60px_60px_32px] gap-2 items-center">
-            <select
-              value={meal.slot}
-              onChange={e => patchMeal(i, { slot: e.target.value })}
-              className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
-            >
-              {SLOTS.map(([value, label]) => (
-                <option key={value} value={value} className="bg-[#0A0A0B]">{label}</option>
+          <div key={i} className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-4">
+
+            {/* Franja + nombre + quitar */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={meal.slot}
+                onChange={e => patchMeal(i, { slot: e.target.value })}
+                className="sm:w-36 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
+              >
+                {SLOTS.map(([value, label]) => (
+                  <option key={value} value={value} className="bg-[#0A0A0B]">{label}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={meal.name}
+                onChange={e => patchMeal(i, { name: e.target.value })}
+                placeholder="Nombre de la comida (Ej. Avena con whey y platano)"
+                className="flex-1 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-sm font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setDraft(d => ({ ...d, meals: d.meals.filter((_, j) => j !== i) }))}
+                className="self-end sm:self-auto h-10 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-[9px] font-black uppercase tracking-widest transition-all"
+              >
+                Quitar comida
+              </button>
+            </div>
+
+            {/* Ingredientes: nombre + cantidad + unidad */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_76px_84px_32px] gap-2 px-1">
+                {["Ingrediente", "Cantidad", "Unidad", ""].map((h, k) => (
+                  <p key={k} className="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">{h}</p>
+                ))}
+              </div>
+              {meal.ingredients.map((ing, k) => (
+                <div key={k} className="grid grid-cols-[1fr_76px_84px_32px] gap-2 items-center">
+                  <input
+                    type="text"
+                    value={ing.name}
+                    onChange={e => patchIngredient(i, k, { name: e.target.value })}
+                    placeholder="Ej. Avena en hojuelas"
+                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={ing.qty || ""}
+                    placeholder="0"
+                    onChange={e => patchIngredient(i, k, { qty: Math.max(0, Number(e.target.value) || 0) })}
+                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                  />
+                  <select
+                    value={ing.unit}
+                    onChange={e => patchIngredient(i, k, { unit: e.target.value })}
+                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
+                  >
+                    {INGREDIENT_UNITS.map(u => (
+                      <option key={u.value} value={u.value} className="bg-[#0A0A0B]">{u.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => patchMeal(i, { ingredients: meal.ingredients.filter((_, j) => j !== k) })}
+                    className="h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
+                    aria-label="Quitar ingrediente"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
-            </select>
-            <input
-              type="text"
-              value={meal.name}
-              onChange={e => patchMeal(i, { name: e.target.value })}
-              placeholder="Ej. Avena con whey y platano"
-              className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
-            />
-            <input
-              type="text"
-              value={meal.description}
-              onChange={e => patchMeal(i, { description: e.target.value })}
-              placeholder="Ingredientes / preparacion"
-              className="col-span-2 md:col-span-1 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all"
-            />
-            {numInput(meal.calories, v => patchMeal(i, { calories: v }))}
-            {numInput(meal.proteinG, v => patchMeal(i, { proteinG: v }), 1000)}
-            {numInput(meal.carbsG, v => patchMeal(i, { carbsG: v }), 2000)}
-            {numInput(meal.fatsG, v => patchMeal(i, { fatsG: v }), 1000)}
-            <button
-              type="button"
-              onClick={() => setDraft(d => ({ ...d, meals: d.meals.filter((_, j) => j !== i) }))}
-              className="h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
-              aria-label="Quitar comida"
-            >
-              ×
-            </button>
+              <button
+                type="button"
+                onClick={() => patchMeal(i, { ingredients: [...meal.ingredients, newIngredient()] })}
+                className="w-full py-2 rounded-lg border border-dashed border-white/[0.08] text-[8px] font-black text-white/25 hover:text-white/55 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+              >
+                Agregar ingrediente
+              </button>
+            </div>
+
+            {/* Preparacion + macros de la comida */}
+            <div className="grid grid-cols-2 md:grid-cols-[1fr_70px_60px_60px_60px] gap-2 items-end">
+              <input
+                type="text"
+                value={meal.description}
+                onChange={e => patchMeal(i, { description: e.target.value })}
+                placeholder="Preparacion / notas (opcional)"
+                className="col-span-2 md:col-span-1 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all"
+              />
+              {([
+                ["Kcal", meal.calories, (v: number) => patchMeal(i, { calories: v }), 10000],
+                ["Prot", meal.proteinG, (v: number) => patchMeal(i, { proteinG: v }), 1000],
+                ["Carbs", meal.carbsG, (v: number) => patchMeal(i, { carbsG: v }), 2000],
+                ["Grasas", meal.fatsG, (v: number) => patchMeal(i, { fatsG: v }), 1000],
+              ] as const).map(([label, value, set, max]) => (
+                <div key={label}>
+                  <p className="text-[7px] font-black text-white/25 uppercase tracking-[0.25em] mb-1 text-center">{label}</p>
+                  {numInput(value, set, max)}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
 
