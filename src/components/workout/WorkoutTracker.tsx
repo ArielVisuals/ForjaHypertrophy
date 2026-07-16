@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ExerciseSelector } from "./ExerciseSelector";
 import { RestTimer } from "./RestTimer";
 import { ExerciseHistoryDrawer } from "./ExerciseHistoryDrawer";
+import { TechniqueModal } from "@/components/shared/TechniqueModal";
 import NumberTicker from "../ui/NumberTicker";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { MUSCLE_GROUP_LABELS } from "@/lib/constants/programs";
@@ -152,6 +153,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling]       = useState(false);
   const [drawerExercise, setDrawerExercise] = useState<ExerciseSession | null>(null);
+  const [techniqueExercise, setTechniqueExercise] = useState<{ id: string; name: string } | null>(null);
   const [loadingPlan, setLoadingPlan]     = useState(false);
   const [architectAnalysis, setArchitectAnalysis] = useState<string | null>(null);
   const [analyzingSession, setAnalyzingSession]   = useState(false);
@@ -1812,6 +1814,12 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
                     {ex.name}
                     <span className="text-[10px] font-black text-white/15 group-hover:text-blue-400/60 uppercase tracking-widest transition-colors">↗</span>
                   </button>
+                  <button
+                    onClick={() => setTechniqueExercise({ id: ex.id, name: ex.name })}
+                    className="px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.07] text-[8px] font-black text-white/30 hover:text-blue-300 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+                  >
+                    Ver técnica
+                  </button>
                   {/* Prescribed objective badge + set progress dots */}
                   {ex.prescribedRepRange && (
                     <div className="flex items-center gap-3 pt-1">
@@ -2027,6 +2035,13 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
           duration={restDuration}
           onComplete={() => setShowRestTimer(false)}
           onSkip={() => setShowRestTimer(false)}
+        />
+      )}
+      {techniqueExercise && (
+        <TechniqueModal
+          exerciseId={techniqueExercise.id.startsWith("OFFLINE") ? undefined : techniqueExercise.id}
+          exerciseName={techniqueExercise.name}
+          onClose={() => setTechniqueExercise(null)}
         />
       )}
       {drawerExercise && (

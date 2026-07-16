@@ -60,13 +60,23 @@ export const intakeForms = pgTable("intake_forms", {
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }), // cuando el coach lo reviso
 });
 
-// Tabla de ejercicios
+// Tabla de ejercicios. Incluye el catalogo importado de
+// github.com/hasaneyldrm/exercises-dataset (1,324 ejercicios con GIF de
+// tecnica e instrucciones en español; medios © Gym Visual, con atribucion).
 export const exercises = pgTable("exercises", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  muscleGroup: text("muscle_group").notNull(), // 'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'full_body'
+  muscleGroup: text("muscle_group").notNull(), // 'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'full_body', 'cardio'
   equipment: text("equipment"),
   instructions: text("instructions"),
+  // Catalogo de tecnica (rutas relativas al CDN, ver constants/exerciseMedia)
+  sourceId: text("source_id").unique(), // id del dataset; NULL = creado en la app
+  gifUrl: text("gif_url"),
+  imageUrl: text("image_url"),
+  bodyPart: text("body_part"),
+  target: text("target"),
+  secondaryMuscles: jsonb("secondary_muscles").notNull().default([]),
+  instructionSteps: jsonb("instruction_steps").notNull().default([]), // pasos en español
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

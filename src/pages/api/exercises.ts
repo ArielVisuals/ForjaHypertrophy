@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { getExercises, getExercisePreviousPerformance, getLastSessionSets, getExerciseTimeline, createExercise } from "@/lib/db/workouts";
+import { getExercises, getExercisePreviousPerformance, getLastSessionSets, getExerciseTimeline, createExercise, getExerciseTechnique } from "@/lib/db/workouts";
 import { requireUser } from "@/lib/auth";
 
 const json = (data: unknown, status = 200) =>
@@ -22,6 +22,14 @@ export const GET: APIRoute = async (context) => {
 
   const action     = context.url.searchParams.get("action");
   const exerciseId = context.url.searchParams.get("exerciseId");
+
+  if (action === "technique") {
+    const name = context.url.searchParams.get("name");
+    if (!exerciseId && !name) return json({ error: "Missing exerciseId or name" }, 400);
+    const { data, error } = await getExerciseTechnique({ id: exerciseId ?? undefined, name: name ?? undefined });
+    if (error) return json({ error: String(error) }, 500);
+    return json(data);
+  }
 
   if (action === "history" || action === "last-sets" || action === "timeline") {
     if (!exerciseId) return json({ error: "Missing exerciseId" }, 400);

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { MUSCLE_GROUP_LABELS } from "../../lib/constants/programs";
+import { TechniqueModal } from "../shared/TechniqueModal";
 
 /**
  * Vista del programa asignado al atleta. Solo lectura: el programa lo
@@ -48,6 +49,7 @@ export function AssignedProgram({ program, coachName }: AssignedProgramProps) {
   const todayIdx = new Date().getDay();
   const [selectedDay, setSelectedDay] = useState<number>(todayIdx);
   const [advancing, setAdvancing] = useState(false);
+  const [techniqueName, setTechniqueName] = useState<string | null>(null);
   const [week, setWeek] = useState(program?.currentWeek ?? 1);
 
   if (!program) {
@@ -208,13 +210,21 @@ export function AssignedProgram({ program, coachName }: AssignedProgramProps) {
               <ul className="divide-y divide-white/[0.05]">
                 {day.exercises.map((ex, i) => (
                   <li key={i} className="py-3.5 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-white uppercase tracking-tight truncate">{ex.name}</p>
+                    <button
+                      type="button"
+                      onClick={() => setTechniqueName(ex.name)}
+                      className="min-w-0 text-left group"
+                      title="Ver técnica"
+                    >
+                      <p className="text-sm font-black text-white uppercase tracking-tight truncate group-hover:text-blue-300 transition-colors">
+                        {ex.name}
+                        <span className="ml-2 text-[8px] font-black text-blue-400/50 uppercase tracking-widest align-middle group-hover:text-blue-300">Técnica</span>
+                      </p>
                       <p className="text-[9px] font-black text-white/25 uppercase tracking-widest mt-0.5">
                         {MUSCLE_GROUP_LABELS[ex.muscleGroup] ?? ex.muscleGroup}
                         {ex.notes ? ` · ${ex.notes}` : ""}
                       </p>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-[10px] font-black text-white/70 tabular-nums">
                         {ex.targetSets} x {ex.repRange}
@@ -232,6 +242,10 @@ export function AssignedProgram({ program, coachName }: AssignedProgramProps) {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {techniqueName && (
+        <TechniqueModal exerciseName={techniqueName} onClose={() => setTechniqueName(null)} />
+      )}
     </div>
   );
 }

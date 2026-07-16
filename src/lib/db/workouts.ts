@@ -164,13 +164,50 @@ export async function getWeeklyVolumeByMuscle(userId: string) {
  */
 export async function getExercises() {
   try {
+    // Lista ligera: los pasos/detalle de tecnica van por getExerciseTechnique
     const data = await db
-      .select()
+      .select({
+        id: exercisesTable.id,
+        name: exercisesTable.name,
+        muscleGroup: exercisesTable.muscleGroup,
+        equipment: exercisesTable.equipment,
+        imageUrl: exercisesTable.imageUrl,
+        gifUrl: exercisesTable.gifUrl,
+      })
       .from(exercisesTable)
       .orderBy(exercisesTable.name);
     return { data, error: null };
   } catch (error) {
     console.error("Error fetching exercises:", error);
+    return { data: null, error };
+  }
+}
+
+/** Detalle de tecnica de un ejercicio, por id o por nombre exacto. */
+export async function getExerciseTechnique(opts: { id?: string; name?: string }) {
+  try {
+    const fields = {
+      id: exercisesTable.id,
+      name: exercisesTable.name,
+      muscleGroup: exercisesTable.muscleGroup,
+      equipment: exercisesTable.equipment,
+      gifUrl: exercisesTable.gifUrl,
+      imageUrl: exercisesTable.imageUrl,
+      target: exercisesTable.target,
+      secondaryMuscles: exercisesTable.secondaryMuscles,
+      instructionSteps: exercisesTable.instructionSteps,
+    };
+    const rows = opts.id
+      ? await db.select(fields).from(exercisesTable).where(eq(exercisesTable.id, opts.id)).limit(1)
+      : await db
+          .select(fields)
+          .from(exercisesTable)
+          .where(sql`lower(${exercisesTable.name}) = lower(${opts.name ?? ""})`)
+          .orderBy(sql`${exercisesTable.gifUrl} IS NULL`) // prioriza la fila con GIF
+          .limit(1);
+    return { data: rows[0] ?? null, error: null };
+  } catch (error) {
+    console.error("Error fetching exercise technique:", error);
     return { data: null, error };
   }
 }

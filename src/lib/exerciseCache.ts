@@ -1,6 +1,6 @@
-const KEY = "forja_exercises_v1";
+const KEY = "forja_exercises_v2";
 
-export type CachedExercise = { id: string; name: string; muscleGroup?: string; muscle_group?: string; created_at?: string };
+export type CachedExercise = { id: string; name: string; muscleGroup?: string; muscle_group?: string; equipment?: string | null; imageUrl?: string | null; gifUrl?: string | null; created_at?: string };
 
 /**
  * Fetches the exercises list from the API when online and writes to localStorage.

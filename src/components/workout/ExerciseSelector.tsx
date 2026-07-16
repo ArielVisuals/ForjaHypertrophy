@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Exercise, MuscleGroup } from "@/types/workout";
 import { fetchExercisesCached, type CachedExercise } from "@/lib/exerciseCache";
+import { TechniqueModal } from "@/components/shared/TechniqueModal";
+import { exerciseMediaUrl } from "@/lib/constants/exerciseMedia";
 
 interface ExerciseSelectorProps {
   onSelectExercise: (exercise: Exercise) => void;
@@ -36,6 +38,7 @@ export function ExerciseSelector({
   const [newName, setNewName]                     = useState("");
   const [newMuscle, setNewMuscle]                 = useState<MuscleGroup>("chest");
   const [creating, setCreating]                   = useState(false);
+  const [techniqueOf, setTechniqueOf]             = useState<CachedExercise | null>(null);
 
   useEffect(() => { loadExercises(); }, []);
 
@@ -226,28 +229,63 @@ export function ExerciseSelector({
           ) : (
             <div className="space-y-2 pt-4">
               {filteredExercises.map(ex => (
-                <button
+                <div
                   key={ex.id}
-                  onClick={() => onSelectExercise(ex as unknown as Exercise)}
-                  className="w-full p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-left hover:bg-white/5 hover:border-blue-500/30 transition-all group flex items-center justify-between"
+                  className="w-full p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-blue-500/30 transition-all group flex items-center gap-3"
                 >
-                  <div>
-                    <p className="text-sm font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors">
-                      {ex.name}
-                    </p>
-                    <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-0.5">
-                      {(ex as any).muscleGroup || ex.muscle_group}
-                    </p>
-                  </div>
-                  <svg className="w-4 h-4 text-white/10 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={() => onSelectExercise(ex as unknown as Exercise)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  >
+                    {ex.imageUrl ? (
+                      <img
+                        src={exerciseMediaUrl(ex.imageUrl)!}
+                        alt=""
+                        width={44}
+                        height={44}
+                        loading="lazy"
+                        className="w-11 h-11 rounded-xl bg-white object-contain shrink-0"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.06] shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors truncate">
+                        {ex.name}
+                      </p>
+                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-0.5">
+                        {(ex as any).muscleGroup || ex.muscle_group}
+                      </p>
+                    </div>
+                  </button>
+                  {ex.gifUrl && (
+                    <button
+                      onClick={() => setTechniqueOf(ex)}
+                      title="Ver técnica"
+                      className="shrink-0 px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[8px] font-black text-white/35 hover:text-blue-300 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+                    >
+                      Técnica
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onSelectExercise(ex as unknown as Exercise)}
+                    className="shrink-0"
+                    aria-label={`Añadir ${ex.name}`}
+                  >
+                    <svg className="w-4 h-4 text-white/10 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {techniqueOf && (
+        <TechniqueModal exerciseId={techniqueOf.id} onClose={() => setTechniqueOf(null)} />
+      )}
     </div>
   );
 }

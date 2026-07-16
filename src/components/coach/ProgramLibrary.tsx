@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { MUSCLE_GROUP_LABELS } from "../../lib/constants/programs";
+import { TechniqueModal } from "../shared/TechniqueModal";
 
 /**
  * Biblioteca y constructor de programas del entrenador.
@@ -86,7 +87,8 @@ export function ProgramLibrary({ initialLibrary }: { initialLibrary: LibraryItem
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [catalog, setCatalog] = useState<{ name: string }[]>([]);
+  const [catalog, setCatalog] = useState<{ name: string; muscleGroup?: string; gifUrl?: string | null }[]>([]);
+  const [techniqueName, setTechniqueName] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/exercises")
@@ -453,14 +455,33 @@ export function ProgramLibrary({ initialLibrary }: { initialLibrary: LibraryItem
 
               {day.exercises.map((ex, k) => (
                 <div key={k} className="grid grid-cols-2 md:grid-cols-[1fr_140px_70px_90px_70px_90px_32px] gap-2 items-center">
-                  <input
-                    type="text"
-                    list="exercise-catalog"
-                    value={ex.name}
-                    onChange={e => patchExercise(selectedDay, k, { name: e.target.value })}
-                    placeholder="Nombre del ejercicio"
-                    className="col-span-2 md:col-span-1 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
-                  />
+                  <div className="col-span-2 md:col-span-1 flex items-center gap-1.5 min-w-0">
+                    <input
+                      type="text"
+                      list="exercise-catalog"
+                      value={ex.name}
+                      onChange={e => {
+                        const name = e.target.value;
+                        const match = catalog.find(c => c.name.toLowerCase() === name.toLowerCase());
+                        patchExercise(selectedDay, k, {
+                          name,
+                          ...(match?.muscleGroup ? { muscleGroup: match.muscleGroup } : {}),
+                        });
+                      }}
+                      placeholder="Nombre del ejercicio"
+                      className="flex-1 min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-all"
+                    />
+                    {catalog.find(c => c.name.toLowerCase() === ex.name.toLowerCase())?.gifUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setTechniqueName(ex.name)}
+                        title="Ver técnica"
+                        className="shrink-0 h-9 px-2 rounded-lg bg-blue-600/10 border border-blue-500/25 text-[8px] font-black text-blue-300/80 hover:text-blue-200 uppercase tracking-widest transition-all"
+                      >
+                        GIF
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={ex.muscleGroup}
                     onChange={e => patchExercise(selectedDay, k, { muscleGroup: e.target.value })}
@@ -528,6 +549,10 @@ export function ProgramLibrary({ initialLibrary }: { initialLibrary: LibraryItem
       <datalist id="exercise-catalog">
         {catalog.map(ex => <option key={ex.name} value={ex.name} />)}
       </datalist>
+
+      {techniqueName && (
+        <TechniqueModal exerciseName={techniqueName} onClose={() => setTechniqueName(null)} />
+      )}
 
       {error && (
         <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">{error}</p>
