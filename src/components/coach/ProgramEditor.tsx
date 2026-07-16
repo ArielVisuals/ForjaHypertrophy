@@ -44,6 +44,11 @@ interface ProgramEditorProps {
 }
 
 const DAY_NAMES = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+
+/** Etiqueta de campo visible solo en movil (en md+ mandan los encabezados de columna). */
+function MobileLabel({ children }: { children: string }) {
+  return <p className="md:hidden text-[7px] font-black text-white/25 uppercase tracking-[0.25em] mb-1">{children}</p>;
+}
 export const LEVELS = [
   { value: "Beginner",     label: "PRINCIPIANTE" },
   { value: "Intermediate", label: "INTERMEDIO" },
@@ -287,8 +292,10 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               </div>
 
               {day.exercises.map((ex, k) => (
-                <div key={k} className="grid grid-cols-2 md:grid-cols-[1fr_140px_70px_90px_70px_90px_32px] gap-2 items-center">
-                  <div className="col-span-2 md:col-span-1 flex items-center gap-1.5 min-w-0">
+                <div key={k} className="grid grid-cols-2 md:grid-cols-[1fr_140px_70px_90px_70px_90px_32px] gap-2 items-end md:items-center border-b border-white/[0.04] pb-3 md:border-0 md:pb-0">
+                  <div className="col-span-2 md:col-span-1 min-w-0">
+                  <MobileLabel>Ejercicio</MobileLabel>
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <input
                       type="text"
                       list="exercise-catalog"
@@ -326,55 +333,73 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                       </button>
                     )}
                   </div>
-                  <select
-                    value={ex.muscleGroup}
-                    onChange={e => patchExercise(selectedDay, k, { muscleGroup: e.target.value })}
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
-                  >
-                    {MUSCLE_OPTIONS.map(([value, label]) => (
-                      <option key={value} value={value} className="bg-[#0A0A0B]">{label}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={ex.targetSets}
-                    onChange={e => patchExercise(selectedDay, k, { targetSets: Math.min(12, Math.max(1, Number(e.target.value) || 1)) })}
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
-                  />
-                  <input
-                    type="text"
-                    value={ex.repRange}
-                    onChange={e => patchExercise(selectedDay, k, { repRange: e.target.value })}
-                    placeholder="8-12"
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
-                  />
-                  <select
-                    value={ex.rirTarget ?? ""}
-                    onChange={e => patchExercise(selectedDay, k, { rirTarget: e.target.value === "" ? null : Number(e.target.value) })}
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black text-white/70 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
-                  >
-                    <option value="" className="bg-[#0A0A0B]">-</option>
-                    {[0, 1, 2, 3, 4].map(n => (
-                      <option key={n} value={n} className="bg-[#0A0A0B]">{n}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    value={ex.notes}
-                    onChange={e => patchExercise(selectedDay, k, { notes: e.target.value })}
-                    placeholder="Opcional"
-                    className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => patchDay(selectedDay, { exercises: day.exercises.filter((_, j) => j !== k) })}
-                    className="h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
-                    aria-label="Quitar ejercicio"
-                  >
-                    ×
-                  </button>
+                  </div>
+                  <div>
+                    <MobileLabel>Músculo</MobileLabel>
+                    <select
+                      value={ex.muscleGroup}
+                      onChange={e => patchExercise(selectedDay, k, { muscleGroup: e.target.value })}
+                      className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
+                    >
+                      {MUSCLE_OPTIONS.map(([value, label]) => (
+                        <option key={value} value={value} className="bg-[#0A0A0B]">{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <MobileLabel>Series</MobileLabel>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={ex.targetSets}
+                      onChange={e => patchExercise(selectedDay, k, { targetSets: Math.min(12, Math.max(1, Number(e.target.value) || 1)) })}
+                      className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <MobileLabel>Reps</MobileLabel>
+                    <input
+                      type="text"
+                      value={ex.repRange}
+                      onChange={e => patchExercise(selectedDay, k, { repRange: e.target.value })}
+                      placeholder="8-12"
+                      className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <MobileLabel>RIR</MobileLabel>
+                    <select
+                      value={ex.rirTarget ?? ""}
+                      onChange={e => patchExercise(selectedDay, k, { rirTarget: e.target.value === "" ? null : Number(e.target.value) })}
+                      className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black text-white/70 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
+                    >
+                      <option value="" className="bg-[#0A0A0B]">-</option>
+                      {[0, 1, 2, 3, 4].map(n => (
+                        <option key={n} value={n} className="bg-[#0A0A0B]">{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <MobileLabel>Notas</MobileLabel>
+                    <input
+                      type="text"
+                      value={ex.notes}
+                      onChange={e => patchExercise(selectedDay, k, { notes: e.target.value })}
+                      placeholder="Opcional"
+                      className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => patchDay(selectedDay, { exercises: day.exercises.filter((_, j) => j !== k) })}
+                      className="h-9 w-full md:w-auto md:px-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
+                      aria-label="Quitar ejercicio"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))}
 
