@@ -12,7 +12,7 @@ interface MobileMenuProps {
 const NAV_COACH = [
   {
     href: "/coach",
-    label: "EQUIPO",
+    label: "ASESORADOS",
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0 .656.126 1.283.356 1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -22,7 +22,7 @@ const NAV_COACH = [
   },
   {
     href: "/coach/programs",
-    label: "BIBLIO",
+    label: "BIBLIOTECA",
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -92,7 +92,7 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
       {/* ── Bottom bar ── */}
       <nav className="md:hidden fixed bottom-4 left-3 right-3 z-50">
         <div className="bg-black/75 backdrop-blur-xl rounded-[1.75rem] border border-white/10 shadow-2xl p-1.5">
-          <div className="grid grid-cols-6 gap-0.5">
+          <div className={`grid gap-0.5 ${isCoach ? "grid-cols-3" : "grid-cols-6"}`}>
             {(isCoach ? NAV_COACH : NAV).map(item => {
               const active = currentPath === item.href;
               const activeClass = active
@@ -102,10 +102,10 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
                 <a
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl transition-all ${activeClass}`}
+                  className={`flex flex-col items-center justify-center rounded-2xl transition-all ${isCoach ? "gap-1.5 py-3.5" : "gap-1 py-2.5"} ${activeClass}`}
                 >
-                  {item.icon}
-                  <span className="text-[7px] font-black uppercase tracking-tight">{item.label}</span>
+                  {isCoach ? <span className="[&>svg]:w-[22px] [&>svg]:h-[22px]">{item.icon}</span> : item.icon}
+                  <span className={`font-black uppercase ${isCoach ? "text-[9px] tracking-widest" : "text-[7px] tracking-tight"}`}>{item.label}</span>
                 </a>
               );
             })}
@@ -113,14 +113,14 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
             {/* MENU button */}
             <button
               onClick={() => setOpen(true)}
-              className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl transition-all ${open ? "text-white bg-white/10" : "text-white/35 hover:text-white/60"}`}
+              className={`flex flex-col items-center justify-center rounded-2xl transition-all ${isCoach ? "gap-1.5 py-3.5" : "gap-1 py-2.5"} ${open ? "text-white bg-white/10" : "text-white/35 hover:text-white/60"}`}
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={isCoach ? "w-[22px] h-[22px]" : "w-[18px] h-[18px]"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="5"  r="1.4" fill="currentColor" stroke="none" />
                 <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
                 <circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none" />
               </svg>
-              <span className="text-[7px] font-black uppercase tracking-tight">MENÚ</span>
+              <span className={`font-black uppercase ${isCoach ? "text-[9px] tracking-widest" : "text-[7px] tracking-tight"}`}>MENÚ</span>
             </button>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
                       {item.icon}
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-[0.2em]">
-                      {item.href === "/coach" ? "Asesorados" : "Biblioteca"}
+                      {item.label.charAt(0) + item.label.slice(1).toLowerCase()}
                     </span>
                     <svg className="w-4 h-4 ml-auto opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
