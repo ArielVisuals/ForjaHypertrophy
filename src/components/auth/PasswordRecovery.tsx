@@ -133,8 +133,8 @@ export function PasswordRecovery({ mode, token }: PasswordRecoveryProps) {
         {submitting ? "Un momento..." : mode === "request" ? "Enviar enlace" : "Guardar contraseña"}
       </button>
 
-      <p className="text-center text-[9px] font-bold text-white/25 uppercase tracking-widest pt-1">
-        <a href="/login" className="text-blue-400/80 hover:text-blue-300 transition-colors">Volver a iniciar sesion</a>
+      <p className="text-center text-[9px] font-bold text-white/45 uppercase tracking-widest pt-1">
+        <a href="/login" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">Volver a iniciar sesion</a>
       </p>
     </form>
   );

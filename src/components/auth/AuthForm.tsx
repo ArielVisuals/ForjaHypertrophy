@@ -114,7 +114,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-3 text-[8px] font-black text-white/60 hover:text-white uppercase tracking-widest transition-colors"
           >
             {showPassword ? "Ocultar" : "Ver"}
           </button>
@@ -180,16 +180,16 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         {submitting ? "Un momento..." : isRegister ? "Crear cuenta" : "Entrar"}
       </button>
 
-      <p className="text-center text-[9px] font-bold text-white/25 uppercase tracking-widest pt-1">
+      <p className="text-center text-[9px] font-bold text-white/45 uppercase tracking-widest pt-1">
         {isRegister ? (
-          <>Ya tienes cuenta? <a href="/login" className="text-blue-400/80 hover:text-blue-300 transition-colors">Inicia sesion</a></>
+          <>Ya tienes cuenta? <a href="/login" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">Inicia sesion</a></>
         ) : (
-          <>Primera vez en Forja? <a href="/register" className="text-blue-400/80 hover:text-blue-300 transition-colors">Crea tu cuenta</a></>
+          <>Primera vez en Forja? <a href="/register" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">Crea tu cuenta</a></>
         )}
       </p>
       {!isRegister && (
-        <p className="text-center text-[9px] font-bold text-white/25 uppercase tracking-widest">
-          <a href="/forgot-password" className="hover:text-white/50 transition-colors">Olvidaste tu contraseña?</a>
+        <p className="text-center text-[9px] font-bold text-white/45 uppercase tracking-widest">
+          <a href="/forgot-password" className="underline underline-offset-2 hover:text-white transition-colors">Olvidaste tu contraseña?</a>
         </p>
       )}
     </form>
