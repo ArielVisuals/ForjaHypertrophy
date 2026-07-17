@@ -112,7 +112,7 @@ export function BodyMeasurementsChart({ initialData = [] }: Props) {
             className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border ${
               activeMetric === m.key
                 ? "border-transparent text-black"
-                : "bg-transparent border-white/10 text-white/30 hover:text-white hover:border-white/20"
+                : "bg-transparent border-white/10 text-white/60 hover:text-white hover:border-white/20"
             }`}
             style={activeMetric === m.key ? { backgroundColor: m.color } : {}}
           >

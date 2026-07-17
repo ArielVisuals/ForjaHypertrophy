@@ -184,7 +184,7 @@ export function StrengthProgressChart() {
             className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${
               selected === ex.id
                 ? "bg-blue-600 text-white"
-                : "bg-white/[0.04] text-white/30 hover:text-white hover:bg-white/[0.08]"
+                : "bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08]"
             }`}
           >
             {ex.name.split(" ").slice(0, 2).join(" ")}

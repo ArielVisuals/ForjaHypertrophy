@@ -144,7 +144,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           <button
             type="button"
             onClick={() => setIsCoach(!isCoach)}
-            className="flex items-center gap-2.5 text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-white/60 transition-colors"
+            className="flex items-center gap-2.5 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-colors"
           >
             <span className={`w-4 h-4 rounded border flex items-center justify-center text-[9px] transition-all ${
               isCoach ? "bg-blue-600/40 border-blue-500/70 text-white" : "border-white/20"

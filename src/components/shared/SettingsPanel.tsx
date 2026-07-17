@@ -105,9 +105,10 @@ export function SettingsPanel({ userId, initialTargets, lockedByPlan }: Settings
             { label: "EDAD",       value: age,      setter: setAge,      step: 1,   min: 14,  max: 80  },
           ].map(f => (
             <div key={f.label} className="space-y-2">
-              <label className="text-[8px] font-black text-white/25 uppercase tracking-widest">{f.label}</label>
+              <label className="text-[8px] font-black text-white/60 uppercase tracking-widest">{f.label}</label>
               <input
                 type="number"
+                aria-label={f.label}
                 step={f.step} min={f.min} max={f.max}
                 value={f.value}
                 onChange={e => f.setter(Number(e.target.value))}
@@ -116,7 +117,7 @@ export function SettingsPanel({ userId, initialTargets, lockedByPlan }: Settings
             </div>
           ))}
           <div className="space-y-2">
-            <label className="text-[8px] font-black text-white/25 uppercase tracking-widest">SEXO</label>
+            <label className="text-[8px] font-black text-white/60 uppercase tracking-widest">SEXO</label>
             <div className="flex gap-2">
               {[{ label: "M", val: true }, { label: "F", val: false }].map(s => (
                 <button
@@ -125,7 +126,7 @@ export function SettingsPanel({ userId, initialTargets, lockedByPlan }: Settings
                   className={`flex-1 py-3 rounded-xl font-black text-sm border transition-all ${
                     isMale === s.val
                       ? "bg-blue-600/20 border-blue-500/40 text-blue-300"
-                      : "bg-white/[0.03] border-white/10 text-white/30"
+                      : "bg-white/[0.03] border-white/10 text-white/60"
                   }`}
                 >
                   {s.label}

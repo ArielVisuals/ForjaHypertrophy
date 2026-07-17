@@ -161,10 +161,11 @@ export function AthleteProgramEditor({ athleteId, athleteName, currentProgram, t
             Nuevo desde cero
           </button>
           <select
+            aria-label="Usar plantilla como base"
             defaultValue=""
             onChange={e => { startFromTemplate(e.target.value); e.target.value = ""; }}
             disabled={loadingBase}
-            className="flex-1 sm:max-w-xs rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-[10px] font-black uppercase text-white/50 focus:outline-none focus:border-blue-500/50 transition-all"
+            className="flex-1 sm:max-w-xs rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
           >
             <option value="" className="bg-[#0A0A0B]">
               {loadingBase ? "Cargando plantilla..." : "Usar plantilla como base..."}

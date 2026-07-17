@@ -76,9 +76,9 @@ function Answer({ label, value, alert = false }: { label: string; value: string 
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <h4 className="text-sm font-black text-white uppercase tracking-tighter border-b border-white/[0.06] pb-2">
+    <h3 className="text-sm font-black text-white uppercase tracking-tighter border-b border-white/[0.06] pb-2">
       {children}
-    </h4>
+    </h3>
   );
 }
 

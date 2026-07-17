@@ -705,7 +705,7 @@ export function NutritionTracker() {
             <div className="text-[10px] font-black text-white/30 tracking-widest uppercase">(01) ENERGÍA TOTAL</div>
             <button
               onClick={() => { setTargetDraft(targets); setEditingTargets(v => !v); }}
-              className="text-[8px] font-black text-white/20 uppercase tracking-widest hover:text-blue-400 transition-colors"
+              className="text-[8px] font-black text-white/60 uppercase tracking-widest hover:text-blue-400 transition-colors"
             >
               {editingTargets ? "✕" : "EDITAR"}
             </button>

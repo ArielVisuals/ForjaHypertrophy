@@ -150,7 +150,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
           <button
             type="button"
             onClick={onCancel}
-            className="text-[9px] font-black text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
+            className="text-[9px] font-black text-white/60 hover:text-white uppercase tracking-widest transition-colors"
           >
             {backLabel}
           </button>
@@ -188,7 +188,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                   className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     draft.level === l.value
                       ? "bg-blue-600/30 border border-blue-500/60 text-white"
-                      : "bg-white/[0.03] border border-white/[0.08] text-white/35 hover:text-white/60"
+                      : "bg-white/[0.03] border border-white/[0.08] text-white/60 hover:text-white"
                   }`}
                 >
                   {l.label}
@@ -207,7 +207,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                   className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     draft.focus === f.value
                       ? "bg-blue-600/30 border border-blue-500/60 text-white"
-                      : "bg-white/[0.03] border border-white/[0.08] text-white/35 hover:text-white/60"
+                      : "bg-white/[0.03] border border-white/[0.08] text-white/60 hover:text-white"
                   }`}
                 >
                   {f.label}
@@ -221,6 +221,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               type="number"
               min={1}
               max={52}
+              aria-label="Duracion en semanas"
               value={draft.durationWeeks}
               onChange={e => setDraft({ ...draft, durationWeeks: Math.min(52, Math.max(1, Number(e.target.value) || 1)) })}
               className="w-28 rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
@@ -261,7 +262,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               onClick={() => patchDay(selectedDay, { isRest: !day.isRest, ...(day.isRest && day.exercises.length === 0 ? { exercises: [newExercise()] } : {}) })}
               className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                 day.isRest
-                  ? "bg-white/[0.03] border-white/[0.08] text-white/40 hover:text-white/70"
+                  ? "bg-white/[0.03] border-white/[0.08] text-white/65 hover:text-white"
                   : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
               }`}
             >
@@ -287,7 +288,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               {/* Encabezados */}
               <div className="hidden md:grid grid-cols-[1fr_140px_70px_90px_70px_90px_32px] gap-2 px-1">
                 {["Ejercicio", "Musculo", "Series", "Reps", "RIR", "Notas", ""].map((h, i) => (
-                  <p key={i} className="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">{h}</p>
+                  <p key={i} className="text-[8px] font-black text-white/60 uppercase tracking-[0.3em]">{h}</p>
                 ))}
               </div>
 
@@ -337,6 +338,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                   <div>
                     <MobileLabel>Músculo</MobileLabel>
                     <select
+                      aria-label="Grupo muscular"
                       value={ex.muscleGroup}
                       onChange={e => patchExercise(selectedDay, k, { muscleGroup: e.target.value })}
                       className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
@@ -352,6 +354,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                       type="number"
                       min={1}
                       max={12}
+                      aria-label="Series"
                       value={ex.targetSets}
                       onChange={e => patchExercise(selectedDay, k, { targetSets: Math.min(12, Math.max(1, Number(e.target.value) || 1)) })}
                       className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
@@ -361,6 +364,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                     <MobileLabel>Reps</MobileLabel>
                     <input
                       type="text"
+                      aria-label="Rango de repeticiones"
                       value={ex.repRange}
                       onChange={e => patchExercise(selectedDay, k, { repRange: e.target.value })}
                       placeholder="8-12"
@@ -370,6 +374,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                   <div>
                     <MobileLabel>RIR</MobileLabel>
                     <select
+                      aria-label="RIR objetivo"
                       value={ex.rirTarget ?? ""}
                       onChange={e => patchExercise(selectedDay, k, { rirTarget: e.target.value === "" ? null : Number(e.target.value) })}
                       className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black text-white/70 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
@@ -384,6 +389,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                     <MobileLabel>Notas</MobileLabel>
                     <input
                       type="text"
+                      aria-label="Notas del ejercicio"
                       value={ex.notes}
                       onChange={e => patchExercise(selectedDay, k, { notes: e.target.value })}
                       placeholder="Opcional"
@@ -394,7 +400,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                     <button
                       type="button"
                       onClick={() => patchDay(selectedDay, { exercises: day.exercises.filter((_, j) => j !== k) })}
-                      className="h-9 w-full md:w-auto md:px-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
+                      className="h-9 w-full md:w-auto md:px-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/60 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
                       aria-label="Quitar ejercicio"
                     >
                       ×
@@ -406,7 +412,7 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               <button
                 type="button"
                 onClick={() => patchDay(selectedDay, { exercises: [...day.exercises, newExercise()] })}
-                className="w-full py-3 rounded-xl border border-dashed border-white/[0.1] text-[9px] font-black text-white/30 hover:text-white/60 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+                className="w-full py-3 rounded-xl border border-dashed border-white/[0.1] text-[9px] font-black text-white/60 hover:text-white hover:border-blue-500/40 uppercase tracking-widest transition-all"
               >
                 Agregar ejercicio
               </button>

@@ -149,9 +149,10 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
     }
   };
 
-  const numInput = (value: number, onChange: (v: number) => void, max = 10000) => (
+  const numInput = (value: number, onChange: (v: number) => void, max = 10000, label = "") => (
     <input
       type="number"
+      aria-label={label}
       min={0}
       max={max}
       value={value || ""}
@@ -170,6 +171,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
             <label className="block text-[9px] font-black text-white/50 uppercase tracking-[0.3em] mb-2">Nombre del plan</label>
             <input
               type="text"
+              aria-label="Nombre del plan"
               value={draft.name}
               onChange={e => setDraft({ ...draft, name: e.target.value })}
               className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all"
@@ -197,8 +199,8 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
               ["GRASAS (G)", draft.fatsG, (v: number) => setDraft({ ...draft, fatsG: v })],
             ] as const).map(([label, value, set]) => (
               <div key={label}>
-                <p className="text-[7px] font-black text-white/25 uppercase tracking-[0.25em] mb-1 text-center">{label}</p>
-                {numInput(value, set)}
+                <p className="text-[7px] font-black text-white/60 uppercase tracking-[0.25em] mb-1 text-center">{label}</p>
+                {numInput(value, set, 10000, label)}
               </div>
             ))}
           </div>
@@ -215,6 +217,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
             {/* Franja + nombre + quitar */}
             <div className="flex flex-col sm:flex-row gap-2">
               <select
+                aria-label="Franja de la comida"
                 value={meal.slot}
                 onChange={e => patchMeal(i, { slot: e.target.value })}
                 className="sm:w-36 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
@@ -233,7 +236,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
               <button
                 type="button"
                 onClick={() => setDraft(d => ({ ...d, meals: d.meals.filter((_, j) => j !== i) }))}
-                className="self-end sm:self-auto h-10 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-[9px] font-black uppercase tracking-widest transition-all"
+                className="self-end sm:self-auto h-10 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/60 hover:text-red-300 hover:border-red-500/40 text-[9px] font-black uppercase tracking-widest transition-all"
               >
                 Quitar comida
               </button>
@@ -243,7 +246,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
             <div className="space-y-2">
               <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_76px_84px_32px] gap-2 px-1">
                 {["Ingrediente", "Cantidad", "Unidad", ""].map((h, k) => (
-                  <p key={k} className="text-[8px] font-black text-white/25 uppercase tracking-[0.3em]">{h}</p>
+                  <p key={k} className="text-[8px] font-black text-white/60 uppercase tracking-[0.3em]">{h}</p>
                 ))}
               </div>
               {meal.ingredients.map((ing, k) => (
@@ -265,6 +268,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
                     className="flex-1 sm:flex-none sm:w-[76px] min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center placeholder:text-white/15 focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
                   />
                   <select
+                    aria-label="Unidad del ingrediente"
                     value={ing.unit}
                     onChange={e => patchIngredient(i, k, { unit: e.target.value })}
                     className="flex-1 sm:flex-none sm:w-[84px] min-w-0 rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
@@ -276,7 +280,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
                   <button
                     type="button"
                     onClick={() => patchMeal(i, { ingredients: meal.ingredients.filter((_, j) => j !== k) })}
-                    className="h-9 w-9 shrink-0 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
+                    className="h-9 w-9 shrink-0 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/60 hover:text-red-300 hover:border-red-500/40 text-xs font-black transition-all"
                     aria-label="Quitar ingrediente"
                   >
                     ×
@@ -286,7 +290,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
               <button
                 type="button"
                 onClick={() => patchMeal(i, { ingredients: [...meal.ingredients, newIngredient()] })}
-                className="w-full py-2 rounded-lg border border-dashed border-white/[0.08] text-[8px] font-black text-white/25 hover:text-white/55 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+                className="w-full py-2 rounded-lg border border-dashed border-white/[0.08] text-[8px] font-black text-white/60 hover:text-white hover:border-blue-500/40 uppercase tracking-widest transition-all"
               >
                 Agregar ingrediente
               </button>
@@ -308,8 +312,8 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
                 ["Grasas", meal.fatsG, (v: number) => patchMeal(i, { fatsG: v }), 1000],
               ] as const).map(([label, value, set, max]) => (
                 <div key={label}>
-                  <p className="text-[7px] font-black text-white/25 uppercase tracking-[0.25em] mb-1 text-center">{label}</p>
-                  {numInput(value, set, max)}
+                  <p className="text-[7px] font-black text-white/60 uppercase tracking-[0.25em] mb-1 text-center">{label}</p>
+                  {numInput(value, set, max, label)}
                 </div>
               ))}
             </div>
@@ -319,7 +323,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
         <button
           type="button"
           onClick={() => setDraft(d => ({ ...d, meals: [...d.meals, newMeal(d.meals[d.meals.length - 1]?.slot ?? "desayuno")] }))}
-          className="w-full py-3 rounded-xl border border-dashed border-white/[0.1] text-[9px] font-black text-white/30 hover:text-white/60 hover:border-blue-500/40 uppercase tracking-widest transition-all"
+          className="w-full py-3 rounded-xl border border-dashed border-white/[0.1] text-[9px] font-black text-white/60 hover:text-white hover:border-blue-500/40 uppercase tracking-widest transition-all"
         >
           Agregar comida
         </button>
@@ -344,7 +348,7 @@ export function MealPlanEditor({ athleteId, athleteName, initialPlan }: {
             type="button"
             onClick={deactivate}
             disabled={deactivating}
-            className="px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/[0.08] text-white/35 hover:text-red-300 hover:border-red-500/40 transition-all disabled:opacity-40"
+            className="px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/[0.08] text-white/60 hover:text-red-300 hover:border-red-500/40 transition-all disabled:opacity-40"
           >
             {deactivating ? "..." : "Retirar plan"}
           </button>

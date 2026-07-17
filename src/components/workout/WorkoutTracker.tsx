@@ -1122,7 +1122,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
               </button>
               <button
                 onClick={startFreeSession}
-                className="w-full py-4 bg-white/[0.03] border border-white/10 text-white/40 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] hover:text-white hover:border-white/20 transition-all"
+                className="w-full py-4 bg-white/[0.03] border border-white/10 text-white/60 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] hover:text-white hover:border-white/20 transition-all"
               >
                 Sesión Libre
               </button>
@@ -1191,7 +1191,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
               </button>
               <button
                 onClick={startFreeSession}
-                className="w-full py-4 bg-white/[0.03] border border-white/10 text-white/40 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:text-white transition-all"
+                className="w-full py-4 bg-white/[0.03] border border-white/10 text-white/60 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:text-white transition-all"
               >
                 Sesión Libre
               </button>

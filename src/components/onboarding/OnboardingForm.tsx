@@ -113,7 +113,7 @@ function ChipGroup({ options, value, onChange }: {
           className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
             value === o.value
               ? "bg-blue-600/30 border border-blue-500/60 text-white"
-              : "bg-white/[0.03] border border-white/[0.08] text-white/40 hover:bg-white/[0.06] hover:text-white/70"
+              : "bg-white/[0.03] border border-white/[0.08] text-white/60 hover:bg-white/[0.06] hover:text-white"
           }`}
         >
           {o.label}
