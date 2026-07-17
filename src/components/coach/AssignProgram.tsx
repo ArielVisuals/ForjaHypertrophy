@@ -55,6 +55,7 @@ export function AssignProgram({ athleteId, templates, currentProgramName }: Assi
         {currentProgramName ? "Cambiar programa" : "Asignar programa"}
       </p>
       <select
+        aria-label="Programa a asignar"
         value={selected}
         onChange={e => setSelected(e.target.value)}
         className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-[10px] font-black uppercase text-white/70 focus:outline-none focus:border-blue-500/50 transition-all"
