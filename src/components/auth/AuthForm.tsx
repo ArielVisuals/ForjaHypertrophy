@@ -180,7 +180,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         {submitting ? "Un momento..." : isRegister ? "Crear cuenta" : "Entrar"}
       </button>
 
-      <p className="text-center text-[9px] font-bold text-white/45 uppercase tracking-widest pt-1">
+      <p className="text-center text-[9px] font-bold text-white/60 uppercase tracking-widest pt-1">
         {isRegister ? (
           <>Ya tienes cuenta? <a href="/login" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">Inicia sesion</a></>
         ) : (
@@ -188,7 +188,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         )}
       </p>
       {!isRegister && (
-        <p className="text-center text-[9px] font-bold text-white/45 uppercase tracking-widest">
+        <p className="text-center text-[9px] font-bold text-white/60 uppercase tracking-widest">
           <a href="/forgot-password" className="underline underline-offset-2 hover:text-white transition-colors">Olvidaste tu contraseña?</a>
         </p>
       )}
