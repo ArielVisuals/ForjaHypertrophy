@@ -130,9 +130,24 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
     const hasTraining = draft.days.some(d => !d.isRest && d.exercises.some(ex => ex.name.trim()));
     if (!hasTraining) return setError("Agrega al menos un dia de entrenamiento con ejercicios");
 
+    // Normalizar valores vacíos o en cero
+    const normalizedDays = draft.days.map(day => ({
+      ...day,
+      exercises: day.exercises.map(ex => ({
+        ...ex,
+        targetSets: Math.min(12, Math.max(1, ex.targetSets || 1)),
+      })),
+    }));
+
+    const normalizedDraft = {
+      ...draft,
+      durationWeeks: Math.min(52, Math.max(1, draft.durationWeeks || 8)),
+      days: normalizedDays,
+    };
+
     setSaving(true);
     setError(null);
-    const submitError = await onSubmit(draft);
+    const submitError = await onSubmit(normalizedDraft);
     if (submitError) {
       setError(submitError);
       setSaving(false);
@@ -222,8 +237,18 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
               min={1}
               max={52}
               aria-label="Duracion en semanas"
-              value={draft.durationWeeks}
-              onChange={e => setDraft({ ...draft, durationWeeks: Math.min(52, Math.max(1, Number(e.target.value) || 1)) })}
+              value={draft.durationWeeks === 0 ? "" : draft.durationWeeks}
+              onChange={e => {
+                const val = e.target.value;
+                if (val === "") {
+                  setDraft({ ...draft, durationWeeks: 0 });
+                } else {
+                  const num = parseInt(val, 10);
+                  if (!isNaN(num)) {
+                    setDraft({ ...draft, durationWeeks: Math.min(52, num) });
+                  }
+                }
+              }}
               className="w-28 rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
             />
           </div>
@@ -355,8 +380,18 @@ export function ProgramEditor({ initialDraft, headerLabel, backLabel, submitLabe
                       min={1}
                       max={12}
                       aria-label="Series"
-                      value={ex.targetSets}
-                      onChange={e => patchExercise(selectedDay, k, { targetSets: Math.min(12, Math.max(1, Number(e.target.value) || 1)) })}
+                      value={ex.targetSets === 0 ? "" : ex.targetSets}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          patchExercise(selectedDay, k, { targetSets: 0 });
+                        } else {
+                          const num = parseInt(val, 10);
+                          if (!isNaN(num)) {
+                            patchExercise(selectedDay, k, { targetSets: Math.min(12, num) });
+                          }
+                        }
+                      }}
                       className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2 py-2.5 text-xs font-bold text-white text-center focus:outline-none focus:border-blue-500/50 transition-all tabular-nums"
                     />
                   </div>
