@@ -2,22 +2,22 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { shoppingLists, shoppingListItems, mealPlans, mealPlanMeals } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getSession } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { generateShoppingList, type ShoppingListItemRaw } from "@/lib/gemini";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  const session = await getSession(cookies);
-  if (!session) return new Response("Unauthorized", { status: 401 });
+export const POST: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
   try {
-    const data = await request.json();
+    const data = await context.request.json();
     const timeframe = data.timeframe === 'month' ? 'month' : 'week';
 
     // 1. Obtener el plan activo del usuario
     const [activePlan] = await db
       .select()
       .from(mealPlans)
-      .where(and(eq(mealPlans.assignedTo, session.userId), eq(mealPlans.active, true)));
+      .where(and(eq(mealPlans.assignedTo, user.id), eq(mealPlans.active, true)));
 
     if (!activePlan) {
       return new Response(JSON.stringify({ error: "No active meal plan found" }), { status: 400 });
@@ -58,11 +58,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     // 5. Guardar en BD
-    // Primero, buscar si ya existe una lista para no acumular basura (opcional, por ahora creamos nueva)
     const [newList] = await db
       .insert(shoppingLists)
       .values({
-        userId: session.userId,
+        userId: user.id,
         type: timeframe
       })
       .returning();

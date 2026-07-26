@@ -1,18 +1,18 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { shoppingListItems, shoppingLists } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { getSession } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
 
-export const PUT: APIRoute = async ({ params, request, cookies }) => {
-  const session = await getSession(cookies);
-  if (!session) return new Response("Unauthorized", { status: 401 });
+export const PUT: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
-  const itemId = params.id;
+  const itemId = context.params.id;
   if (!itemId) return new Response("Missing item ID", { status: 400 });
 
   try {
-    const data = await request.json();
+    const data = await context.request.json();
     const isChecked = Boolean(data.isChecked);
 
     // Verify ownership via list
@@ -20,7 +20,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     if (!item) return new Response("Item not found", { status: 404 });
 
     const [list] = await db.select({ userId: shoppingLists.userId }).from(shoppingLists).where(eq(shoppingLists.id, item.listId));
-    if (!list || list.userId !== session.userId) return new Response("Unauthorized", { status: 401 });
+    if (!list || list.userId !== user.id) return new Response("Unauthorized", { status: 401 });
 
     // Update item
     await db

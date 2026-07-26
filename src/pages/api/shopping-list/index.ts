@@ -2,18 +2,18 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { shoppingLists, shoppingListItems } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { getSession } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 
-export const GET: APIRoute = async ({ cookies }) => {
-  const session = await getSession(cookies);
-  if (!session) return new Response("Unauthorized", { status: 401 });
+export const GET: APIRoute = async (context) => {
+  const user = await requireUser(context);
+  if (user instanceof Response) return user;
 
   try {
     // Buscar la lista más reciente del usuario
     const [latestList] = await db
       .select()
       .from(shoppingLists)
-      .where(eq(shoppingLists.userId, session.userId))
+      .where(eq(shoppingLists.userId, user.id))
       .orderBy(desc(shoppingLists.createdAt))
       .limit(1);
 
