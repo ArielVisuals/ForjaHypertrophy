@@ -421,6 +421,10 @@ export function NutritionTracker() {
               <p className="text-[10px] font-bold text-white/35 uppercase tracking-wider leading-relaxed">{plan.notes}</p>
             )}
 
+            <div className="pb-3 border-b border-white/[0.05]">
+              <ShoppingListManager />
+            </div>
+
             <ul className="divide-y divide-white/[0.05]">
               {plan.meals.map(meal => {
                 const logged = loggedPlanMealIds.has(meal.id);
@@ -461,9 +465,6 @@ export function NutritionTracker() {
                 );
               })}
             </ul>
-            <div className="pt-2 border-t border-white/[0.05]">
-              <ShoppingListManager />
-            </div>
           </div>
         </div>
       )}
