@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import NumberTicker from "../ui/NumberTicker";
 import { NutritionWeeklyChart } from "./NutritionWeeklyChart";
 import { MEAL_SLOT_LABELS, formatIngredient, type Ingredient } from "../../lib/constants/nutrition";
+import ShoppingListManager from "./ShoppingListManager";
 
 interface NutritionLog {
   id: string;
@@ -460,6 +461,9 @@ export function NutritionTracker() {
                 );
               })}
             </ul>
+            <div className="pt-2 border-t border-white/[0.05]">
+              <ShoppingListManager />
+            </div>
           </div>
         </div>
       )}

@@ -95,15 +95,16 @@ export default function ShoppingListManager() {
 
   return (
     <>
-      <Button 
+      <button 
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full flex items-center justify-center gap-2 mt-4 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+        className="w-full py-5 rounded-[2rem] bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 font-black uppercase tracking-widest text-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-2 mt-4"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
-        Lista de Súper
-      </Button>
+        Lista de Súper con IA
+      </button>
 
       <AnimatePresence>
         {isOpen && (
