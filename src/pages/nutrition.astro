@@ -1,6 +1,7 @@
 ---
 import MainLayout from "@/layouts/MainLayout.astro";
 import { NutritionTracker } from "@/components/nutrition/NutritionTracker";
+import ShoppingListManager from "@/components/nutrition/ShoppingListManager";
 
 const userId = Astro.locals.user?.id ?? null;
 ---
@@ -22,7 +23,14 @@ const userId = Astro.locals.user?.id ?? null;
       </div>
     </div>
 
-    {userId && <NutritionTracker client:load />}
+    {userId && (
+      <div class="space-y-6">
+        <NutritionTracker client:load />
+        <div class="max-w-md mx-auto sm:mx-0">
+          <ShoppingListManager client:load />
+        </div>
+      </div>
+    )}
     <div class="h-16 md:h-0"></div>
   </div>
 </MainLayout>

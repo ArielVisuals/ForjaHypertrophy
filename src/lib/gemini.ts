@@ -71,3 +71,82 @@ export async function analyzeWorkout(payload: WorkoutAnalysisPayload): Promise<s
     return null;
   }
 }
+
+const SHOPPING_LIST_PROMPT = `Eres un asistente experto en nutrición y logística de compras. 
+Tu tarea es recibir una lista cruda de ingredientes (con cantidades y unidades) que una persona necesita para su plan de alimentación, y devolver una lista de compras organizada y optimizada.
+Debes agrupar ingredientes similares (por ejemplo, sumar las cantidades de "manzana" y "manzanas"), y categorizarlos por departamento del supermercado.
+
+Las categorías permitidas son:
+- Frutas y Verduras
+- Carnes y Pescados
+- Lácteos y Huevos
+- Abarrotes y Despensa
+- Panadería y Tortillería
+- Congelados
+- Otros
+
+Devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estructura, sin texto adicional ni bloques de código (solo el JSON crudo):
+{
+  "items": [
+    {
+      "name": "Nombre del producto agrupado",
+      "quantity": 3.5,
+      "unit": "kg",
+      "category": "Frutas y Verduras"
+    }
+  ]
+}`;
+
+export interface ShoppingListItemRaw {
+  name: string;
+  qty: number;
+  unit: string;
+}
+
+export interface ShoppingListItemParsed {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+}
+
+export async function generateShoppingList(
+  ingredients: ShoppingListItemRaw[],
+  timeframe: 'week' | 'month'
+): Promise<ShoppingListItemParsed[] | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    console.error("[ShoppingList] GROQ_API_KEY no configurada");
+    return null;
+  }
+
+  const days = timeframe === 'week' ? 7 : 30;
+  // Multiplicamos preliminarmente las cantidades por los días
+  const multipliedIngredients = ingredients.map(i => ({
+    name: i.name,
+    qty: i.qty * days,
+    unit: i.unit
+  }));
+
+  try {
+    const groq = new Groq({ apiKey });
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SHOPPING_LIST_PROMPT },
+        { role: "user", content: `LISTA CRUDA:\n${JSON.stringify(multipliedIngredients, null, 2)}` },
+      ],
+      temperature: 0.1, // Baja temperatura para JSON más determinista
+      response_format: { type: "json_object" }
+    });
+
+    const text = completion.choices[0]?.message?.content?.trim() ?? "{}";
+    const parsed = JSON.parse(text);
+    return parsed.items || [];
+  } catch (err: any) {
+    console.error("[ShoppingList] Groq error:", err?.message ?? err);
+    return null;
+  }
+}

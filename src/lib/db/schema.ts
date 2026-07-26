@@ -292,5 +292,26 @@ export const nutritionStaples = pgTable("nutrition_staples", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// Listas de supermercado
+export const shoppingLists = pgTable("shopping_lists", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  type: text("type").notNull(), // 'week' | 'month'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
 
-
+// Artículos de la lista de supermercado
+export const shoppingListItems = pgTable("shopping_list_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  listId: uuid("list_id")
+    .references(() => shoppingLists.id, { onDelete: "cascade" })
+    .notNull(),
+  name: text("name").notNull(),
+  quantity: decimal("quantity", { precision: 8, scale: 2 }).notNull(),
+  unit: text("unit"),
+  category: text("category").notNull().default("Otros"),
+  isChecked: boolean("is_checked").notNull().default(false),
+});
