@@ -161,12 +161,9 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
                   <div className="w-11 h-11 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center font-black text-blue-200 shrink-0">
                     {(user?.displayName || "A").charAt(0).toUpperCase()}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-white truncate">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-black text-white truncate tracking-tight">
                       {user?.displayName || "Atleta"}
-                    </p>
-                    <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest truncate mt-0.5">
-                      {user?.email}
                     </p>
                   </div>
                 </div>

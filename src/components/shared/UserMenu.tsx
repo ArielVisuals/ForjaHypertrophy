@@ -22,9 +22,8 @@ export function UserMenu({ user, isSignedIn }: UserMenuProps) {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="flex-col items-end hidden sm:flex">
+      <div className="flex-col items-end hidden sm:flex justify-center">
         <span className="text-white font-bold text-sm leading-none">{name}</span>
-        <span className="text-white/40 text-[10px] uppercase tracking-widest mt-1">{user?.email}</span>
       </div>
 
       <div className="w-10 h-10 rounded-full bg-blue-600/25 border border-blue-500/40 flex items-center justify-center font-black text-blue-200 select-none">
