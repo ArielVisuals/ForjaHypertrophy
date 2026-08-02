@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo del splash screen y barra de estado -->
+    <color name="colorPrimary">#0A0A0B</color>
+    <color name="colorPrimaryDark">#0A0A0B</color>
+    <color name="colorAccent">#2563EB</color>
+    <color name="ic_launcher_background">#0A0A0B</color>
+</resources>

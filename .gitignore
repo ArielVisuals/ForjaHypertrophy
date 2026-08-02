@@ -40,3 +40,17 @@ coverage/
 /.clerk/
 .vercel
 .env*
+
+# Capacitor / Native
+# Los proyectos android/ e ios/ SÍ se commitean (contienen config nativa)
+# Pero excluimos builds, keystores y archivos generados locales
+android/.gradle/
+android/build/
+android/app/build/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+*.jks
+*.keystore
+release.properties
+
