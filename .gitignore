@@ -53,4 +53,5 @@ ios/App/App.xcodeproj/xcuserdata/
 *.jks
 *.keystore
 release.properties
+keystore.properties
 
