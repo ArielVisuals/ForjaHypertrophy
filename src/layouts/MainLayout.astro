@@ -3,6 +3,9 @@ import "../styles/global.css";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { LandingHeader } from "@/components/shared/LandingHeader";
 import { MobileMenu } from "@/components/shared/MobileMenu";
+import { db } from "@/lib/db";
+import { workoutSessions, friendships } from "@/lib/db/schema";
+import { and, eq, or, count } from "drizzle-orm";
 
 interface Props {
   title: string;
@@ -17,7 +20,35 @@ const currentPath = Astro.url.pathname;
 const appUser = Astro.locals.user ?? null;
 const isCoach = appUser?.role === "coach";
 const isSignedIn = !!appUser;
-const user = appUser ? { displayName: appUser.displayName, email: appUser.email } : null;
+
+// Fetch profile stats for the UserMenu card (lightweight counts)
+let totalWorkouts = 0;
+let friendsCount = 0;
+if (appUser?.id) {
+  try {
+    const [wRows, fRows] = await Promise.all([
+      db.select({ c: count() }).from(workoutSessions)
+        .where(and(eq(workoutSessions.userId, appUser.id), eq(workoutSessions.completed, true))),
+      db.select({ c: count() }).from(friendships)
+        .where(and(
+          or(eq(friendships.requesterId, appUser.id), eq(friendships.addresseeId, appUser.id)),
+          eq(friendships.status, "accepted")
+        )),
+    ]);
+    totalWorkouts = Number(wRows[0]?.c ?? 0);
+    friendsCount  = Number(fRows[0]?.c ?? 0);
+  } catch { /* silencioso */ }
+}
+
+const user = appUser ? {
+  displayName: appUser.displayName,
+  email:       appUser.email,
+  avatarUrl:   appUser.avatarUrl   ?? null,
+  username:    appUser.username    ?? null,
+  bio:         appUser.bio         ?? null,
+  totalWorkouts,
+  friendsCount,
+} : null;
 ---
 
 <!DOCTYPE html>
