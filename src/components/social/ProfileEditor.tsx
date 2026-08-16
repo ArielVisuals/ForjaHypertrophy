@@ -5,23 +5,12 @@ interface Props {
   displayName?: string | null;
   currentUsername?: string | null;
   currentBio?: string | null;
-  cloudName: string;
-  uploadPreset: string;
+  // kept for backwards compatibility but no longer used
+  cloudName?: string;
+  uploadPreset?: string;
 }
 
-const CLOUDINARY_WIDGET_URL = "https://widget.cloudinary.com/v2.0/global/all.js";
-
-function loadCloudinaryWidget(): Promise<void> {
-  return new Promise((resolve) => {
-    if ((window as any).cloudinary) { resolve(); return; }
-    const script = document.createElement("script");
-    script.src = CLOUDINARY_WIDGET_URL;
-    script.onload = () => resolve();
-    document.head.appendChild(script);
-  });
-}
-
-export default function ProfileEditor({ currentAvatarUrl, displayName, currentUsername, currentBio, cloudName, uploadPreset }: Props) {
+export default function ProfileEditor({ currentAvatarUrl, displayName, currentUsername, currentBio }: Props) {
   const [avatar, setAvatar] = useState(currentAvatarUrl ?? "");
   const [name, setName] = useState(displayName ?? "");
   const [username, setUsername] = useState(currentUsername ?? "");
@@ -29,8 +18,11 @@ export default function ProfileEditor({ currentAvatarUrl, displayName, currentUs
   const [usernameError, setUsernameError] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{1,28}[a-z0-9]$/;
 
@@ -44,63 +36,53 @@ export default function ProfileEditor({ currentAvatarUrl, displayName, currentUs
     }
   };
 
-  const handleAvatarUpload = async () => {
-    await loadCloudinaryWidget();
+  // ─── Upload avatar via native file input → /api/profile/avatar ────────────
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be picked again
+    e.target.value = "";
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError("Solo se permiten imágenes JPG, PNG, WebP o GIF.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError("La imagen no puede superar 2MB.");
+      return;
+    }
+
+    setUploadError("");
     setUploadingAvatar(true);
 
-    const widget = (window as any).cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        sources: ["local", "camera"],
-        cropping: true,
-        croppingAspectRatio: 1,
-        showSkipCropButton: false,
-        resourceType: "image",
-        maxFileSize: 5000000,
-        clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
-        styles: {
-          palette: {
-            window: "#0A0A0B",
-            windowBorder: "rgba(255,255,255,0.1)",
-            tabIcon: "#2563EB",
-            menuIcons: "#aaaaaa",
-            textDark: "#000000",
-            textLight: "#ffffff",
-            link: "#2563EB",
-            action: "#2563EB",
-            inactiveTabIcon: "#555555",
-            error: "#ef4444",
-            inProgress: "#2563EB",
-            complete: "#22c55e",
-            sourceBg: "#111112",
-          },
-        },
-      },
-      async (error: any, result: any) => {
-        if (error) { setUploadingAvatar(false); return; }
-        if (result.event === "success") {
-          const url = result.info.secure_url;
+    try {
+      // Show instant local preview
+      const previewUrl = URL.createObjectURL(file);
+      setAvatar(previewUrl);
 
-          // Guardar URL en el servidor
-          const res = await fetch("/api/profile/avatar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ avatarUrl: url }),
-          });
+      const formData = new FormData();
+      formData.append("file", file);
 
-          if (res.ok) {
-            setAvatar(url);
-          }
-          setUploadingAvatar(false);
-          widget.close();
-        }
-        if (result.event === "close") {
-          setUploadingAvatar(false);
-        }
+      const res = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && json.avatarUrl) {
+        setAvatar(json.avatarUrl); // replace local blob with CDN URL
+      } else {
+        setUploadError(json.error ?? "Error al subir la foto. Intenta de nuevo.");
+        setAvatar(currentAvatarUrl ?? ""); // revert preview on error
       }
-    );
-    widget.open();
+    } catch {
+      setUploadError("Error de red al subir la foto. Intenta de nuevo.");
+      setAvatar(currentAvatarUrl ?? "");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSave = async () => {
@@ -160,20 +142,42 @@ export default function ProfileEditor({ currentAvatarUrl, displayName, currentUs
               {initials}
             </div>
           )}
+          {uploadingAvatar && (
+            <div style={{
+              position: "absolute", inset: 0, borderRadius: "50%",
+              background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{
+                width: 24, height: 24, border: "2px solid rgba(255,255,255,0.3)",
+                borderTopColor: "#fff", borderRadius: "50%",
+                animation: "spin 0.7s linear infinite",
+              }} />
+            </div>
+          )}
         </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+
         <div>
           <button
-            onClick={handleAvatarUpload}
+            onClick={() => { setUploadError(""); fileInputRef.current?.click(); }}
             disabled={uploadingAvatar}
             style={{
               padding: "0.5rem 1rem",
               borderRadius: "0.75rem",
               border: "1px solid rgba(37,99,235,0.4)",
               background: "rgba(37,99,235,0.12)",
-              color: "#93c5fd",
+              color: uploadingAvatar ? "rgba(147,197,253,0.5)" : "#93c5fd",
               fontSize: "0.75rem",
               fontWeight: 900,
-              cursor: uploadingAvatar ? "wait" : "pointer",
+              cursor: uploadingAvatar ? "not-allowed" : "pointer",
               display: "block",
               marginBottom: "0.4rem",
             }}
@@ -181,8 +185,11 @@ export default function ProfileEditor({ currentAvatarUrl, displayName, currentUs
             {uploadingAvatar ? "Subiendo..." : "Cambiar foto"}
           </button>
           <p style={{ margin: 0, fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", fontWeight: 500 }}>
-            JPG, PNG o WebP · Máx 5 MB
+            JPG, PNG o WebP · Máx 2 MB
           </p>
+          {uploadError && (
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.7rem", color: "#fca5a5" }}>{uploadError}</p>
+          )}
         </div>
       </div>
 
@@ -308,6 +315,8 @@ export default function ProfileEditor({ currentAvatarUrl, displayName, currentUs
       >
         {saving ? "Guardando..." : "Guardar cambios"}
       </button>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
