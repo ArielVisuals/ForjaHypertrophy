@@ -49,12 +49,10 @@ export const GET: APIRoute = async (context) => {
     return json(data);
   }
 
-  // ─── Buscar sesión incompleta de hoy en la DB ────────────────────────────
+  // ─── Buscar sesión incompleta en la DB ────────────────────────────
   // Usado como fallback cuando localStorage está vacío (proceso killed por OS).
   // Devuelve la sesión + los sets completados que ya llegaron a Postgres.
   if (action === "incomplete-today") {
-    const todayDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" en timezone local
-
     const [incompleteSession] = await db
       .select({
         id:        workoutSessions.id,
@@ -66,7 +64,6 @@ export const GET: APIRoute = async (context) => {
       .where(
         and(
           eq(workoutSessions.userId, user.id),
-          eq(workoutSessions.date, todayDate),
           eq(workoutSessions.completed, false)
         )
       )

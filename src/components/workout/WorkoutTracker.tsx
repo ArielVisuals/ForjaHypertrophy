@@ -216,7 +216,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     getActiveSession().then(async (saved) => {
       if (saved) {
         const exs = Array.isArray(saved.exercises) ? saved.exercises : [];
-        const valid = exs.length > 0 && exs.every((e: any) => Array.isArray(e?.sets));
+        const valid = exs.every((e: any) => Array.isArray(e?.sets));
         if (!valid) { clearActiveSession(); }
         else { setInterrupted(saved); return; } // localStorage válido — mostrar recovery
       }
