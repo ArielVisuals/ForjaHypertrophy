@@ -156,26 +156,42 @@ export function MobileMenu({ currentPath, user, isSignedIn, isCoach = false }: M
               </div>
 
               <div className="px-6 pt-4 pb-10 space-y-5">
-                {/* User card */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                  <div className="w-11 h-11 rounded-full border border-indigo-500/40 flex items-center justify-center font-black text-blue-200 shrink-0 overflow-hidden">
-                    {user?.avatarUrl ? (
-                      <img src={user.avatarUrl} alt={user.displayName ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    ) : (
+                {/* User card link */}
+                {user?.username ? (
+                  <a href={`/u/${user.username}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-all">
+                    <div className="w-11 h-11 rounded-full border border-indigo-500/40 flex items-center justify-center font-black text-blue-200 shrink-0 overflow-hidden">
+                      {user?.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.displayName ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div className="w-full h-full bg-blue-600/25 flex items-center justify-center font-black text-blue-200">
+                          {(user?.displayName || "A").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-black text-white truncate tracking-tight">
+                        {user?.displayName || "Atleta"}
+                      </p>
+                      <p className="text-[11px] font-semibold text-indigo-400/70 truncate">@{user.username}</p>
+                    </div>
+                    <svg className="w-4 h-4 text-white/30 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                  </a>
+                ) : (
+                  <a href="/settings" className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-all">
+                    <div className="w-11 h-11 rounded-full border border-indigo-500/40 flex items-center justify-center font-black text-blue-200 shrink-0 overflow-hidden">
                       <div className="w-full h-full bg-blue-600/25 flex items-center justify-center font-black text-blue-200">
                         {(user?.displayName || "A").charAt(0).toUpperCase()}
                       </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-black text-white truncate tracking-tight">
-                      {user?.displayName || "Atleta"}
-                    </p>
-                    {user?.username && (
-                      <p className="text-[11px] font-semibold text-indigo-400/70 truncate">@{user.username}</p>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-black text-white truncate tracking-tight">
+                        {user?.displayName || "Atleta"}
+                      </p>
+                      <p className="text-[11px] font-semibold text-white/40 truncate">Configurar perfil</p>
+                    </div>
+                    <svg className="w-4 h-4 text-white/30 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                  </a>
+                )}
 
                 {/* Secciones del coach (el sheet del atleta ya las tiene en la barra) */}
                 {isCoach && NAV_COACH.map(item => (
