@@ -4,7 +4,7 @@ import { analyzeWorkout, type WorkoutExercise } from "@/lib/gemini";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workoutSessions, workoutSets, exercises as exercisesTable } from "@/lib/db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, ne } from "drizzle-orm";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -49,10 +49,32 @@ export const GET: APIRoute = async (context) => {
     return json(data);
   }
 
+  // ─── Cerrar sesiones huérfanas de días anteriores ─────────────────
+  // Llamado al arrancar la app. Marca como completed=true todas las sesiones
+  // abiertas de días anteriores, para que NO aparezcan en incomplete-today.
+  if (action === "close-orphans") {
+    const todayDate = new Date().toISOString().slice(0, 10);
+    await db
+      .update(workoutSessions)
+      .set({ completed: true, completedAt: new Date() })
+      .where(
+        and(
+          eq(workoutSessions.userId, user.id),
+          eq(workoutSessions.completed, false),
+          ne(workoutSessions.date, todayDate)   // días ANTERIORES a hoy
+        )
+      );
+    return json({ ok: true });
+  }
+
   // ─── Buscar sesión incompleta en la DB ────────────────────────────
   // Usado como fallback cuando localStorage está vacío (proceso killed por OS).
   // Devuelve la sesión + los sets completados que ya llegaron a Postgres.
   if (action === "incomplete-today") {
+    // Only look for sessions started TODAY — old orphaned sessions from previous
+    // days should never interrupt the user. We use the `date` column (YYYY-MM-DD).
+    const todayDate = new Date().toISOString().slice(0, 10); // "2026-08-16"
+
     const [incompleteSession] = await db
       .select({
         id:        workoutSessions.id,
@@ -64,13 +86,15 @@ export const GET: APIRoute = async (context) => {
       .where(
         and(
           eq(workoutSessions.userId, user.id),
-          eq(workoutSessions.completed, false)
+          eq(workoutSessions.completed, false),
+          eq(workoutSessions.date, todayDate)   // ← KEY FIX: only TODAY's sessions
         )
       )
       .orderBy(desc(workoutSessions.startedAt))
       .limit(1);
 
     if (!incompleteSession) return json(null);
+
 
     // Obtener sets ya guardados en la DB para esta sesión
     const completedSets = await db

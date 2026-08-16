@@ -220,7 +220,9 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
         if (!valid) { clearActiveSession(); }
         else { setInterrupted(saved); return; } // localStorage válido — mostrar recovery
       }
-      // Fix #2/#3: localStorage vacío o inválido — consultar la DB como fallback
+      // Step 1: close orphaned sessions from previous days so they never block the user
+      try { await fetch("/api/workouts?action=close-orphans"); } catch { /* silencioso */ }
+      // Step 2: localStorage vacío o inválido — consultar la DB como fallback (SOLO hoy)
       try {
         const res = await fetch("/api/workouts?action=incomplete-today");
         if (res.ok) {
