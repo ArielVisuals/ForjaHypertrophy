@@ -836,7 +836,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
       setIncompleteDbSession(null);
     };
 
-    return createPortal(
+    return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -902,8 +902,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
             Guardar y cerrar
           </button>
         </div>
-      </motion.div>,
-      document.body
+      </motion.div>
     );
   }
 
@@ -914,7 +913,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     const totalSets = safeExs.flatMap((e: any) => Array.isArray(e?.sets) ? e.sets : []).length;
     const doneSets  = safeExs.flatMap((e: any) => Array.isArray(e?.sets) ? e.sets : []).filter((s: any) => s?.completed).length;
 
-    return createPortal(
+    return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -972,8 +971,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
           </button>
 
         </div>
-      </motion.div>,
-      document.body
+      </motion.div>
     );
   }
 
