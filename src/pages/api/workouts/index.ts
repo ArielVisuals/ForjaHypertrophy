@@ -2,6 +2,9 @@ import type { APIRoute } from "astro";
 import { createWorkout, completeWorkout, getWeeklyVolumeByMuscle, getWorkoutHistory, getStrengthTimeline, getMuscleRecovery, deleteWorkout, getSessionSets, getOwnedSession, updateWorkout } from "@/lib/db/workouts";
 import { analyzeWorkout, type WorkoutExercise } from "@/lib/gemini";
 import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { workoutSessions, workoutSets, exercises as exercisesTable } from "@/lib/db/schema";
+import { eq, and, isNull, desc } from "drizzle-orm";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -46,8 +49,73 @@ export const GET: APIRoute = async (context) => {
     return json(data);
   }
 
+  // ─── Buscar sesión incompleta de hoy en la DB ────────────────────────────
+  // Usado como fallback cuando localStorage está vacío (proceso killed por OS).
+  // Devuelve la sesión + los sets completados que ya llegaron a Postgres.
+  if (action === "incomplete-today") {
+    const todayDate = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" en timezone local
+
+    const [incompleteSession] = await db
+      .select({
+        id:        workoutSessions.id,
+        name:      workoutSessions.name,
+        date:      workoutSessions.date,
+        startedAt: workoutSessions.startedAt,
+      })
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.userId, user.id),
+          eq(workoutSessions.date, todayDate),
+          eq(workoutSessions.completed, false)
+        )
+      )
+      .orderBy(desc(workoutSessions.startedAt))
+      .limit(1);
+
+    if (!incompleteSession) return json(null);
+
+    // Obtener sets ya guardados en la DB para esta sesión
+    const completedSets = await db
+      .select({
+        id:          workoutSets.id,
+        setNumber:   workoutSets.setNumber,
+        reps:        workoutSets.reps,
+        weightKg:    workoutSets.weightKg,
+        rpe:         workoutSets.rpe,
+        exerciseId:  workoutSets.exerciseId,
+        exerciseName: exercisesTable.name,
+        muscleGroup: exercisesTable.muscleGroup,
+      })
+      .from(workoutSets)
+      .innerJoin(exercisesTable, eq(workoutSets.exerciseId, exercisesTable.id))
+      .where(
+        and(
+          eq(workoutSets.workoutSessionId, incompleteSession.id),
+          eq(workoutSets.completed, true)
+        )
+      )
+      .orderBy(workoutSets.setNumber);
+
+    // Agrupar sets por ejercicio para visualización en la UI de recovery
+    const exerciseMap = new Map<string, { id: string; name: string; muscleGroup: string; sets: typeof completedSets }>();
+    for (const s of completedSets) {
+      if (!exerciseMap.has(s.exerciseId)) {
+        exerciseMap.set(s.exerciseId, { id: s.exerciseId, name: s.exerciseName, muscleGroup: s.muscleGroup, sets: [] });
+      }
+      exerciseMap.get(s.exerciseId)!.sets.push(s);
+    }
+
+    return json({
+      session: incompleteSession,
+      exercises: Array.from(exerciseMap.values()),
+      totalCompletedSets: completedSets.length,
+    });
+  }
+
   return json({ error: "Unknown action" }, 400);
 };
+
 
 export const POST: APIRoute = async (context) => {
   const user = await requireUser(context);

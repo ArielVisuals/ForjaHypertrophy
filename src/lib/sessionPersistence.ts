@@ -23,7 +23,7 @@ export function getActiveSession(): Promise<PersistedSession | null> {
     const raw = ls()?.getItem(SESSION_KEY);
     if (!raw) return Promise.resolve(null);
     const data: PersistedSession = JSON.parse(raw);
-    if (Date.now() - data.savedAt > MAX_AGE_MS) {
+    if (!data || !data.sessionId || Date.now() - data.savedAt > MAX_AGE_MS) {
       ls()?.removeItem(SESSION_KEY);
       return Promise.resolve(null);
     }

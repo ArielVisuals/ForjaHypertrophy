@@ -161,6 +161,12 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
   const [interrupted, setInterrupted]             = useState<PersistedSession | null>(null);
   const [copyFormat, setCopyFormat]               = useState<"md" | "json">("md");
   const [copied, setCopied]                       = useState(false);
+  // Fix #2/#3: sesión incompleta encontrada en DB cuando localStorage está vacío
+  const [incompleteDbSession, setIncompleteDbSession] = useState<{
+    session: { id: string; name: string; date: string; startedAt: string | null };
+    exercises: { id: string; name: string; muscleGroup: string; sets: { id: string; setNumber: number; reps: number; weightKg: string | null; rpe: number | null }[] }[];
+    totalCompletedSets: number;
+  } | null>(null);
 
   // Programa activo: ya disponible desde SSR; solo hace fetch si faltó (sin programa activo server-side)
   useEffect(() => {
@@ -205,31 +211,60 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     return () => clearTimeout(t);
   }, [prAlert]);
 
-  // On mount: check for interrupted session
+  // On mount: check for interrupted session (localStorage) → fallback to DB
   useEffect(() => {
-    getActiveSession().then(saved => {
-      if (!saved) return;
-      const exs = Array.isArray(saved.exercises) ? saved.exercises : [];
-      const valid = exs.length > 0 && exs.every((e: any) => Array.isArray(e?.sets));
-      if (!valid) { clearActiveSession(); return; }
-      setInterrupted(saved);
+    getActiveSession().then(async (saved) => {
+      if (saved) {
+        const exs = Array.isArray(saved.exercises) ? saved.exercises : [];
+        const valid = exs.length > 0 && exs.every((e: any) => Array.isArray(e?.sets));
+        if (!valid) { clearActiveSession(); }
+        else { setInterrupted(saved); return; } // localStorage válido — mostrar recovery
+      }
+      // Fix #2/#3: localStorage vacío o inválido — consultar la DB como fallback
+      try {
+        const res = await fetch("/api/workouts?action=incomplete-today");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.session?.id) setIncompleteDbSession(data);
+        }
+      } catch { /* silencioso — no bloquear startup */ }
     }).catch(console.error);
   }, []);
 
-  // Auto-save active session state on every exercise change
+  // Fix #1 + #4: Auto-save activo con debounce 300ms (era 800ms)
+  // Guarda incluso cuando exercises está vacío (sessionId siempre se preserva)
   useEffect(() => {
-    if (!session || exercises.length === 0) return;
+    if (!session) return; // solo necesitamos tener sesión activa
     const timer = setTimeout(() => {
       saveActiveSession({
         sessionId:    session.id,
         sessionName:  session.name,
         elapsedTime,
         savedAt:      Date.now(),
-        exercises,
+        exercises, // [] es válido — indica sesión creada pero sin ejercicios aún
       }).catch(console.error);
-    }, 800);
+    }, 300); // Fix #1: reducido de 800ms a 300ms
     return () => clearTimeout(timer);
-  }, [session, exercises]); // elapsedTime intentionally omitted — captured on exercise events
+  }, [session, exercises]); // elapsedTime omitido intencionalmente — capturado en eventos de ejercicio
+
+  // Fix #1: Guardar inmediatamente al ocultar el tab (antes de que el OS mate el proceso)
+  // visibilitychange es el ÚNICO evento garantizado en iOS/Android antes del process kill
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && session) {
+        // Guardado síncrono inmediato — no esperar debounce
+        saveActiveSession({
+          sessionId:   session.id,
+          sessionName: session.name,
+          elapsedTime,
+          savedAt:     Date.now(),
+          exercises,
+        }).catch(console.error);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [session, exercises, elapsedTime]);
 
   // Online/offline detection + auto-sync when reconnecting
   useEffect(() => {
@@ -753,6 +788,124 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     await clearActiveSession();
     setInterrupted(null);
   };
+
+  // ─── RECUPERACIÓN DESDE DB (localStorage vacío, sesión huérfana en Postgres) ──
+  // Ocurre cuando el OS mató el proceso antes de que el debounce/visibilitychange guardara.
+  // Los sets completados sí llegaron a la DB; solo los sets en edición se pierden.
+  if (!session && !interrupted && incompleteDbSession) {
+    const { session: dbSess, exercises: dbExs, totalCompletedSets } = incompleteDbSession;
+    const startedAgo = dbSess.startedAt
+      ? Math.round((Date.now() - new Date(dbSess.startedAt).getTime()) / 60000)
+      : null;
+
+    const resumeFromDb = () => {
+      // Reconstruir el estado de la sesión desde los datos de la DB
+      // Solo tenemos sets completados — marcarlos como completados en el UI
+      const rebuiltExercises: ExerciseSession[] = dbExs.map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        muscleGroup: ex.muscleGroup,
+        sets: ex.sets.map((s, idx) => ({
+          id: s.id,
+          setNumber: s.setNumber,
+          reps: s.reps,
+          weightKg: Number(s.weightKg ?? 0),
+          rir: s.rpe != null ? 10 - s.rpe : 2,
+          completed: true, // ya estaban completados en la DB
+        })),
+      }));
+      setSession({ id: dbSess.id, name: dbSess.name });
+      setExercises(rebuiltExercises);
+      setStartTime(Date.now()); // reiniciar cronómetro (tiempo anterior desconocido)
+      setIncompleteDbSession(null);
+    };
+
+    const closeFromDb = async () => {
+      // Finalizar la sesión limpiamente en la DB sin datos nuevos
+      await fetch("/api/workouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete",
+          sessionId: dbSess.id,
+          sessionName: dbSess.name,
+          duration: startedAgo ?? 1,
+          overallRpe: 7,
+        }),
+      }).catch(() => {});
+      setIncompleteDbSession(null);
+    };
+
+    return createPortal(
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
+      >
+        <div style={{ width: "100%", maxWidth: "480px" }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔄</div>
+            <p style={{ fontSize: "9px", fontWeight: 900, color: "rgba(99,102,241,0.7)", textTransform: "uppercase", letterSpacing: "0.35em", marginBottom: "0.5rem" }}>
+              SESIÓN ENCONTRADA
+            </p>
+            <h2 style={{ fontSize: "clamp(1.4rem,4vw,2rem)", fontWeight: 900, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: "0.625rem" }}>
+              {dbSess.name}
+            </h2>
+            <p style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.35)" }}>
+              {totalCompletedSets} sets guardados en la nube
+              {startedAgo != null && ` · hace ${startedAgo < 1 ? "menos de 1 min" : `${startedAgo} min`}`}
+            </p>
+            <p style={{ fontSize: "10px", fontWeight: 500, color: "rgba(255,255,255,0.2)", marginTop: "0.5rem" }}>
+              Tu app se cerró inesperadamente. Estos sets ya están seguros.
+            </p>
+          </div>
+
+          {/* Sets recuperados */}
+          {dbExs.length > 0 && (
+            <div style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.18)", borderRadius: "1.25rem", padding: "1.25rem", marginBottom: "1.5rem" }}>
+              <p style={{ fontSize: "8px", fontWeight: 900, color: "rgba(99,102,241,0.5)", textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: "0.75rem" }}>
+                SETS GUARDADOS
+              </p>
+              {dbExs.map((ex, i) => (
+                <div key={ex.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0.5rem 0", borderBottom: i < dbExs.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "-0.01em" }}>{ex.name}</span>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: "10px", fontWeight: 900, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.1em", display: "block" }}>
+                      {ex.sets.length} sets ✓
+                    </span>
+                    {ex.sets.slice(0, 2).map((s, j) => (
+                      <span key={j} style={{ fontSize: "9px", color: "rgba(255,255,255,0.25)", fontWeight: 600, display: "block" }}>
+                        {Number(s.weightKg ?? 0) > 0 ? `${Number(s.weightKg).toFixed(1)}kg × ${s.reps}` : `${s.reps} reps`}
+                      </span>
+                    ))}
+                    {ex.sets.length > 2 && (
+                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.15)", fontWeight: 600, display: "block" }}>+{ex.sets.length - 2} más</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Actions */}
+          <button
+            onClick={resumeFromDb}
+            style={{ width: "100%", display: "block", padding: "1.125rem", borderRadius: "1.25rem", background: "#6366f1", color: "#fff", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px", border: "none", cursor: "pointer", marginBottom: "0.75rem", boxSizing: "border-box" }}
+          >
+            Continuar sesión →
+          </button>
+          <button
+            onClick={closeFromDb}
+            style={{ width: "100%", display: "block", padding: "1rem", borderRadius: "1.25rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.25)", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px", cursor: "pointer", boxSizing: "border-box" }}
+          >
+            Guardar y cerrar
+          </button>
+        </div>
+      </motion.div>,
+      document.body
+    );
+  }
 
   // ─── SESIÓN INTERRUMPIDA ───────────────────────────────────────────────────
   if (!session && interrupted) {
