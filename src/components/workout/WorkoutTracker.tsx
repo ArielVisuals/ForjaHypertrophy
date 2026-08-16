@@ -793,7 +793,8 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
   // Ocurre cuando el OS mató el proceso antes de que el debounce/visibilitychange guardara.
   // Los sets completados sí llegaron a la DB; solo los sets en edición se pierden.
   if (!session && !interrupted && incompleteDbSession) {
-    const { session: dbSess, exercises: dbExs, totalCompletedSets } = incompleteDbSession;
+    const { session: dbSess, exercises = [], totalCompletedSets = 0 } = incompleteDbSession;
+    const dbExs = Array.isArray(exercises) ? exercises : [];
     const startedAgo = dbSess.startedAt
       ? Math.round((Date.now() - new Date(dbSess.startedAt).getTime()) / 60000)
       : null;
@@ -837,9 +838,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     };
 
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <div
         style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
       >
         <div style={{ width: "100%", maxWidth: "480px" }}>
@@ -902,7 +901,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
             Guardar y cerrar
           </button>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -914,9 +913,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
     const doneSets  = safeExs.flatMap((e: any) => Array.isArray(e?.sets) ? e.sets : []).filter((s: any) => s?.completed).length;
 
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <div
         style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
       >
         <div style={{ width: "100%", maxWidth: "480px" }}>
@@ -971,7 +968,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
           </button>
 
         </div>
-      </motion.div>
+      </div>
     );
   }
 
