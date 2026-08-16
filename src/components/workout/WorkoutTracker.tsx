@@ -840,7 +840,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
+        style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
       >
         <div style={{ width: "100%", maxWidth: "480px" }}>
           {/* Header */}
@@ -918,7 +918,7 @@ export function WorkoutTracker({ initialProgram, todaySession }: WorkoutTrackerP
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
+        style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
       >
         <div style={{ width: "100%", maxWidth: "480px" }}>
 
