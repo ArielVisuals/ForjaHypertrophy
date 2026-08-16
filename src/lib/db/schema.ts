@@ -6,6 +6,11 @@ export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").unique(),
   displayName: text("display_name"),
+  // ─── Perfil Social ─────────────────────────────────────────────────────────
+  username: text("username").unique(),   // handle único p.ej. "ariel.forja" (min 3, max 30)
+  avatarUrl: text("avatar_url"),         // URL de Cloudinary (actualizado post-upload directo)
+  bio: text("bio"),                      // descripción corta, max 160 chars
+  // ───────────────────────────────────────────────────────────────────────────
   role: text("role").notNull().default("athlete"), // 'athlete' | 'coach'
   coachId: text("coach_id").references((): AnyPgColumn => users.id), // null para coaches
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
@@ -314,4 +319,58 @@ export const shoppingListItems = pgTable("shopping_list_items", {
   unit: text("unit"),
   category: text("category").notNull().default("Otros"),
   isChecked: boolean("is_checked").notNull().default(false),
+});
+
+// ─── Sistema Social ───────────────────────────────────────────────────────────
+
+// Amistades mutuas entre atletas.
+// Una sola fila por par (requesterId, addresseeId); siempre requesterId < addresseeId
+// no aplica aquí porque el requester puede ser cualquiera — usamos unique en el par.
+// status: 'pending' | 'accepted' | 'blocked'
+export const friendships = pgTable("friendships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requesterId: text("requester_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  addresseeId: text("addressee_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'blocked'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Records personales de cada atleta por ejercicio.
+// Se actualiza automáticamente cuando un set supera el estimatedMax anterior.
+// estimatedMax usa la fórmula Epley: weight * (1 + reps / 30)
+export const personalRecords = pgTable("personal_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  exerciseId: uuid("exercise_id")
+    .references(() => exercises.id, { onDelete: "cascade" })
+    .notNull(),
+  weightKg: decimal("weight_kg", { precision: 6, scale: 2 }).notNull(),
+  reps: integer("reps").notNull(),
+  estimatedMax: decimal("estimated_max", { precision: 6, scale: 2 }).notNull(), // 1RM estimado
+  achievedAt: timestamp("achieved_at", { withTimezone: true }).notNull(),
+  workoutSetId: uuid("workout_set_id").references(() => workoutSets.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Tabla base para el futuro sistema de rangos por ejercicio.
+// Se crea ahora vacía; los valores concretos se añaden en una segunda fase
+// con datos reales de los atletas.
+// tier: 'iron' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'
+export const exerciseRankTiers = pgTable("exercise_rank_tiers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  exerciseId: uuid("exercise_id")
+    .references(() => exercises.id, { onDelete: "cascade" })
+    .notNull(),
+  gender: text("gender").notNull().default("all"), // 'male' | 'female' | 'all'
+  tier: text("tier").notNull(), // 'iron' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'
+  minWeightKg: decimal("min_weight_kg", { precision: 6, scale: 2 }).notNull(), // 1RM mínimo para este tier
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

@@ -1,0 +1,302 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getSessionUser } from "@/lib/auth";
+import { getFriendshipStatus } from "@/lib/db/friends";
+import { getPersonalRecords } from "@/lib/db/personalRecords";
+
+const { username } = Astro.params;
+if (!username) return Astro.redirect("/dashboard");
+
+// Buscar el usuario por username
+const [profile] = await db
+  .select({
+    id: users.id,
+    displayName: users.displayName,
+    username: users.username,
+    avatarUrl: users.avatarUrl,
+    bio: users.bio,
+    createdAt: users.createdAt,
+  })
+  .from(users)
+  .where(eq(users.username, username))
+  .limit(1);
+
+if (!profile) return Astro.redirect("/dashboard");
+
+// Viewer actual (puede ser null)
+const viewer = await getSessionUser(Astro).catch(() => null);
+const isSelf = viewer?.id === profile.id;
+
+let friendshipStatus: Awaited<ReturnType<typeof getFriendshipStatus>> = { status: "none", direction: null };
+if (viewer && !isSelf) {
+  friendshipStatus = await getFriendshipStatus(viewer.id, profile.id);
+}
+
+const isFriend = friendshipStatus.status === "accepted";
+const canViewRecords = isSelf || isFriend;
+
+const records = canViewRecords ? await getPersonalRecords(profile.id) : [];
+
+// Estadísticas básicas
+const { workoutSessions } = await import("@/lib/db/schema");
+const { count, eq: eqOp } = await import("drizzle-orm");
+const [{ total: totalWorkouts }] = await db
+  .select({ total: count() })
+  .from(workoutSessions)
+  .where(eqOp(workoutSessions.userId, profile.id));
+
+const memberSince = profile.createdAt
+  ? new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" }).format(new Date(profile.createdAt))
+  : null;
+
+const initials = ((profile.displayName ?? profile.username ?? "?"))
+  .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+
+const TIER_CONFIG = {
+  iron: { label: "Hierro", color: "#6b7280", icon: "⚙️" },
+  bronze: { label: "Bronce", color: "#b45309", icon: "🥉" },
+  silver: { label: "Plata", color: "#6b7280", icon: "🥈" },
+  gold: { label: "Oro", color: "#d97706", icon: "🥇" },
+  platinum: { label: "Platino", color: "#7c3aed", icon: "💎" },
+  diamond: { label: "Diamante", color: "#2563eb", icon: "💠" },
+};
+---
+
+<MainLayout
+  title={`${profile.displayName ?? profile.username} — FORJA`}
+  description={profile.bio ?? `Perfil de ${profile.displayName ?? profile.username} en FORJA Hypertrophy`}
+>
+  <div class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+
+    <!-- Back -->
+    <a href="/dashboard" class="inline-flex items-center gap-2 text-white/30 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors mb-8">
+      ← Volver
+    </a>
+
+    <!-- ─── Header del Perfil ──────────────────────────────────────────── -->
+    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-10">
+      <!-- Avatar -->
+      <div class="shrink-0">
+        {profile.avatarUrl ? (
+          <img
+            src={profile.avatarUrl}
+            alt={profile.displayName ?? profile.username ?? "Avatar"}
+            class="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-2 border-white/10"
+          />
+        ) : (
+          <div
+            class="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex items-center justify-center text-3xl font-black text-white border-2 border-white/10"
+            style="background: linear-gradient(135deg, #2563eb, #1d4ed8);"
+          >
+            {initials}
+          </div>
+        )}
+      </div>
+
+      <!-- Info -->
+      <div class="flex-1 text-center sm:text-left">
+        <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tighter">
+          {profile.displayName ?? profile.username}
+        </h1>
+        {profile.username && (
+          <p class="text-sm text-white/30 font-semibold mt-0.5">@{profile.username}</p>
+        )}
+        {profile.bio && (
+          <p class="text-sm text-white/50 mt-3 leading-relaxed max-w-sm">{profile.bio}</p>
+        )}
+        {memberSince && (
+          <p class="text-xs text-white/20 font-medium mt-2 uppercase tracking-wider">Miembro desde {memberSince}</p>
+        )}
+
+        <!-- Botón de amistad -->
+        {viewer && !isSelf && (
+          <div class="mt-4 flex gap-2 justify-center sm:justify-start" id="friendship-actions">
+            {friendshipStatus.status === "none" && (
+              <button
+                id="btn-add-friend"
+                data-target-id={profile.id}
+                data-target-username={profile.username}
+                class="px-4 py-2 rounded-xl border border-blue-500/40 bg-blue-500/10 text-blue-300 text-xs font-black uppercase tracking-wider hover:bg-blue-500/20 transition-colors"
+              >
+                + Añadir amigo
+              </button>
+            )}
+            {friendshipStatus.status === "pending" && friendshipStatus.direction === "sent" && (
+              <span class="px-4 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-white/30 text-xs font-black uppercase tracking-wider">
+                Solicitud enviada
+              </span>
+            )}
+            {friendshipStatus.status === "pending" && friendshipStatus.direction === "received" && (
+              <div class="flex gap-2">
+                <button id="btn-accept" data-requester-id={profile.id}
+                  class="px-4 py-2 rounded-xl border border-green-500/30 bg-green-500/10 text-green-300 text-xs font-black uppercase tracking-wider hover:bg-green-500/20 transition-colors">
+                  Aceptar
+                </button>
+                <button id="btn-reject" data-requester-id={profile.id}
+                  class="px-4 py-2 rounded-xl border border-red-500/20 bg-red-500/08 text-red-300 text-xs font-black uppercase tracking-wider hover:bg-red-500/15 transition-colors">
+                  Rechazar
+                </button>
+              </div>
+            )}
+            {friendshipStatus.status === "accepted" && (
+              <span class="px-4 py-2 rounded-xl border border-green-500/20 bg-green-500/08 text-green-400/70 text-xs font-black uppercase tracking-wider">
+                ✓ Amigos
+              </span>
+            )}
+          </div>
+        )}
+        {isSelf && (
+          <a href="/settings" class="inline-block mt-4 px-4 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-white/40 text-xs font-black uppercase tracking-wider hover:text-white hover:border-white/20 transition-colors">
+            Editar perfil
+          </a>
+        )}
+      </div>
+    </div>
+
+    <!-- ─── Estadísticas ────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 gap-3 mb-10">
+      <div class="rounded-2xl p-4 text-center" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <p class="text-2xl font-black text-white">{totalWorkouts}</p>
+        <p class="text-xs text-white/30 font-bold uppercase tracking-wider mt-1">Entrenamientos</p>
+      </div>
+      <div class="rounded-2xl p-4 text-center" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <p class="text-2xl font-black text-white">{records.length}</p>
+        <p class="text-xs text-white/30 font-bold uppercase tracking-wider mt-1">Records</p>
+      </div>
+    </div>
+
+    <!-- ─── Personal Records ───────────────────────────────────────────── -->
+    {canViewRecords ? (
+      <section class="mb-10">
+        <div class="flex items-center gap-3 mb-5">
+          <p class="text-[9px] font-black text-blue-500/50 uppercase tracking-[0.4em]">Fuerza</p>
+          <div class="h-px flex-1 bg-white/[0.05]"></div>
+        </div>
+        <h2 class="text-lg font-black text-white uppercase tracking-tight mb-5">Records Personales</h2>
+
+        {records.length === 0 ? (
+          <p class="text-sm text-white/25 font-medium">Aún no hay records registrados. ¡Empieza a entrenar para establecer el primero!</p>
+        ) : (
+          <div class="grid gap-3 sm:grid-cols-2">
+            {records.map((r) => (
+              <div class="rounded-2xl p-4 relative overflow-hidden" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+                <!-- Glow accent -->
+                <div class="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10" style="background: radial-gradient(circle, #2563eb, transparent); transform: translate(30%, -30%);"></div>
+
+                <p class="text-[10px] font-black text-white/25 uppercase tracking-widest mb-1 truncate">
+                  {r.muscleGroup}
+                </p>
+                <p class="text-sm font-black text-white truncate mb-3">{r.exerciseName}</p>
+
+                <div class="flex items-end justify-between">
+                  <div>
+                    <p class="text-2xl font-black text-white leading-none">{Number(r.weightKg).toFixed(1)} <span class="text-base text-white/40">kg</span></p>
+                    <p class="text-xs text-white/35 font-semibold mt-1">{r.reps} reps · 1RM ~{Number(r.estimatedMax).toFixed(1)} kg</p>
+                  </div>
+                  <!-- Rango placeholder -->
+                  <div class="text-right">
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);">
+                      <span class="text-base">🔒</span>
+                      <span class="text-[9px] font-black text-white/20 uppercase tracking-wide">Próx.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {r.achievedAt && (
+                  <p class="text-[10px] text-white/20 font-medium mt-3">
+                    {new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric" }).format(new Date(r.achievedAt))}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    ) : (
+      <!-- No son amigos -->
+      <div class="rounded-2xl p-8 text-center mb-10" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <p class="text-3xl mb-3">🔒</p>
+        <p class="text-sm font-black text-white uppercase tracking-tight">Records privados</p>
+        <p class="text-xs text-white/30 font-medium mt-2 leading-relaxed">
+          Los records de {profile.displayName ?? "este atleta"} solo son visibles para sus amigos.
+          {viewer ? "Envíale una solicitud de amistad para verlos." : "Inicia sesión para conectar con este atleta."}
+        </p>
+      </div>
+    )}
+
+    <!-- ─── Sistema de Rangos (próximamente) ──────────────────────────── -->
+    <section>
+      <div class="flex items-center gap-3 mb-5">
+        <p class="text-[9px] font-black text-blue-500/50 uppercase tracking-[0.4em]">Gamificación</p>
+        <div class="h-px flex-1 bg-white/[0.05]"></div>
+      </div>
+      <div class="rounded-2xl p-6" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <p class="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-3">Sistema de Rangos FORJA</p>
+        <div class="flex gap-2 flex-wrap">
+          {Object.entries(TIER_CONFIG).map(([key, tier]) => (
+            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg opacity-30" style={`border: 1px solid ${tier.color}40; background: ${tier.color}10;`}>
+              <span class="text-sm">{tier.icon}</span>
+              <span class="text-[10px] font-black text-white uppercase tracking-wide">{tier.label}</span>
+            </div>
+          ))}
+        </div>
+        <p class="text-xs text-white/20 font-medium mt-4">🚧 El sistema de rangos estará disponible próximamente. Los récords ya se están registrando.</p>
+      </div>
+    </section>
+
+  </div>
+</MainLayout>
+
+<script>
+  // Botón Añadir Amigo
+  document.getElementById("btn-add-friend")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const targetUsername = btn.dataset.targetUsername;
+    if (!targetUsername) return;
+
+    btn.disabled = true;
+    btn.textContent = "Enviando...";
+
+    const res = await fetch("/api/friends/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUsername }),
+    });
+
+    if (res.ok) {
+      btn.textContent = "✓ Solicitud enviada";
+      btn.style.color = "rgba(134,239,172,0.8)";
+      btn.style.borderColor = "rgba(34,197,94,0.3)";
+      btn.style.background = "rgba(34,197,94,0.08)";
+    } else {
+      const j = await res.json();
+      btn.textContent = j.error ?? "Error";
+      btn.disabled = false;
+    }
+  });
+
+  // Botón Aceptar solicitud
+  document.getElementById("btn-accept")?.addEventListener("click", async (e) => {
+    const requesterId = (e.currentTarget as HTMLButtonElement).dataset.requesterId!;
+    await fetch("/api/friends/respond", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requesterId, action: "accept" }),
+    });
+    window.location.reload();
+  });
+
+  // Botón Rechazar solicitud
+  document.getElementById("btn-reject")?.addEventListener("click", async (e) => {
+    const requesterId = (e.currentTarget as HTMLButtonElement).dataset.requesterId!;
+    await fetch("/api/friends/respond", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requesterId, action: "reject" }),
+    });
+    window.location.reload();
+  });
+</script>
