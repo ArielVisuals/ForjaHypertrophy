@@ -1,0 +1,50 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import PublicProfileCard from "@/components/social/PublicProfileCard";
+import { getPublicProfile } from "@/lib/db/friends";
+import { db } from "@/lib/db";
+import { workoutSessions, friendships } from "@/lib/db/schema";
+import { and, eq, or, count } from "drizzle-orm";
+
+const { username } = Astro.params;
+const viewerId = Astro.locals.user?.id ?? null;
+
+if (!username) return Astro.redirect("/");
+
+const result = await getPublicProfile(username, viewerId ?? undefined);
+if (!result) return Astro.redirect("/404");
+
+const { profile, friendshipStatus } = result;
+
+// Fetch public stats for this profile
+const [wRows, fRows] = await Promise.all([
+  db.select({ c: count() }).from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, profile.id), eq(workoutSessions.completed, true))),
+  db.select({ c: count() }).from(friendships)
+    .where(and(
+      or(eq(friendships.requesterId, profile.id), eq(friendships.addresseeId, profile.id)),
+      eq(friendships.status, "accepted")
+    )),
+]);
+
+const totalWorkouts = Number(wRows[0]?.c ?? 0);
+const friendsCount  = Number(fRows[0]?.c ?? 0);
+const isOwnProfile  = viewerId === profile.id;
+---
+
+<MainLayout
+  title={`${profile.displayName ?? profile.username ?? "Atleta"} — FORJA`}
+  description={profile.bio ?? `Perfil de ${profile.displayName ?? profile.username} en FORJA Hypertrophy`}
+>
+  <div class="min-h-[80vh] flex items-center justify-center px-4 py-10">
+    <PublicProfileCard
+      profile={profile}
+      friendshipStatus={friendshipStatus}
+      totalWorkouts={totalWorkouts}
+      friendsCount={friendsCount}
+      isOwnProfile={isOwnProfile}
+      isLoggedIn={!!viewerId}
+      client:load
+    />
+  </div>
+</MainLayout>
