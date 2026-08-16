@@ -1,4 +1,4 @@
-const CACHE_NAME = "forja-v4";
+const CACHE_NAME = "forja-v5";
 const SHELL_URLS = [
   "/",
   "/dashboard",
