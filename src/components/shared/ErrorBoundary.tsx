@@ -8,16 +8,17 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  errorMsg: string;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMsg: "" };
   }
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, errorMsg: error.message };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
@@ -51,8 +52,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <p className="text-[9px] font-bold text-white/15 uppercase tracking-widest">
           Ocurrió un error al renderizar este componente
         </p>
+        {this.state.errorMsg && (
+          <p className="text-[10px] text-red-400 font-mono text-left p-4 bg-red-950/20 rounded-xl overflow-auto">
+            {this.state.errorMsg}
+          </p>
+        )}
         <button
-          onClick={() => this.setState({ hasError: false })}
+          onClick={() => this.setState({ hasError: false, errorMsg: "" })}
           className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:text-white hover:border-white/20 transition-all"
         >
           Reintentar
